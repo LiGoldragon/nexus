@@ -9,11 +9,11 @@
 
 ;; Nodes
 
-(Assert (Node User))
-(Assert (Node "nexus daemon"))
-(Assert (Node "criome daemon"))
-(Assert (Node "forge daemon"))
-(Assert (Node "sema redb store"))
+(Assert (Node [User]))
+(Assert (Node [nexus daemon]))
+(Assert (Node [criome daemon]))
+(Assert (Node [forge daemon]))
+(Assert (Node [sema redb store]))
 
 ;; Edges
 
@@ -25,7 +25,7 @@
 ;; Graph
 
 (Assert
-  (Graph "criome request flow"
+  (Graph [criome request flow]
          [100 101 102 103 104]
          [200 201 202 203]
          []))
@@ -35,7 +35,7 @@
 (Match (NodeQuery (Bind)) Any)
 (Match (EdgeQuery 102 (Bind) (Bind)) Any)
 (Match (EdgeQuery (Bind) (Bind) DependsOn) Any)
-(Match (GraphQuery "criome request flow" (Bind) (Bind) (Bind)) Any)
+(Match (GraphQuery [criome request flow] (Bind) (Bind) (Bind)) Any)
 
 ;; Projection read plan
 

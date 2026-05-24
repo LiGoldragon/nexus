@@ -10,11 +10,11 @@
 ;; State-changing requests
 ;; ------------------------------------------------------------------
 
-(Assert (Node User))
-(Assert (Node "nexus daemon"))
+(Assert (Node [User]))
+(Assert (Node [nexus daemon]))
 (Assert (Edge 100 101 Flow))
 
-(Mutate 100 (Node "renamed node"))
+(Mutate 100 (Node [renamed node]))
 (Retract Node 100)
 
 (Atomic [(Assert (Node A))
@@ -30,7 +30,7 @@
 (Match (EdgeQuery 100 (Bind) Flow) (Limit 10))
 
 (Subscribe (NodeQuery (Bind)) ImmediateExtension Block)
-(Validate (Assert (Node "dry run")))
+(Validate (Assert (Node [dry run])))
 
 ;; ------------------------------------------------------------------
 ;; Read-plan payloads
@@ -56,10 +56,10 @@
 ;; ------------------------------------------------------------------
 
 (Ok)
-(Diagnostic Error E0099 "Mutate is outside the current daemon scope")
+(Diagnostic Error E0099 [Mutate is outside the current daemon scope])
 
-[(Node User)
- (Node "nexus daemon")]
+[(Node [User])
+ (Node [nexus daemon])]
 
-[(SlotBinding 1024 (Node User))
- (SlotBinding 1025 (Node "nexus daemon"))]
+[(SlotBinding 1024 (Node [User]))
+ (SlotBinding 1025 (Node [nexus daemon]))]

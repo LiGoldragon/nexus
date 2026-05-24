@@ -13,11 +13,11 @@
 
 ;; Concrete field matching.
 
-(Match (NodeQuery "criome daemon") Any)
+(Match (NodeQuery [criome daemon]) Any)
 
 ;; Whole-record replacement at a slot.
 
-(Mutate 102 (Node "criome daemon - validator and sema"))
+(Mutate 102 (Node [criome daemon - validator and sema]))
 
 ;; Retract by kind and slot.
 
@@ -25,8 +25,8 @@
 
 ;; Validate is a dry-run wrapper over another request.
 
-(Validate (Assert (Node "Fresh node")))
-(Validate (Mutate 102 (Node "would replace this node's name")))
+(Validate (Assert (Node [Fresh node])))
+(Validate (Mutate 102 (Node [would replace this node's name])))
 
 ;; Subscribe opens a continuous match on the connection.
 
@@ -50,6 +50,6 @@
 
 ;; Atomic bundles requests as all-or-nothing state change.
 
-(Atomic [(Assert (Node Apple))
-         (Assert (Node Banana))
+(Atomic [(Assert (Node [Apple]))
+         (Assert (Node [Banana]))
          (Assert (Edge 200 201 DependsOn))])

@@ -80,7 +80,7 @@ The nexus daemon is the *only* place where these meet:
 | Surface | Direction | Format | Contents |
 |---|---|---|---|
 | **client-facing** | client ↔ nexus | NOTA syntax | Nexus request records in / reply records out |
-| **Signal** | nexus ↔ criome | rkyv | language IR for the seven root verbs (`Assert`, `Mutate`, `Retract`, `Match`, `Subscribe`, `Atomic`, `Validate`). Read-algebra (`Constrain`, `Project`, `Aggregate`, `Infer`, `Recurse`) appears inside `Match`/`Subscribe`/`Validate` payloads via `sema-engine`'s `ReadPlan`, never as a root. |
+| **Signal** | nexus ↔ criome | rkyv | language IR for the six root verbs (`Assert`, `Mutate`, `Retract`, `Match`, `Subscribe`, `Validate`). Atomicity is structural — a multi-op `Request<Payload>` carrying `NonEmpty<Operation>` commits as one unit; no separate `Atomic` verb. Read-algebra (`Constrain`, `Project`, `Aggregate`, `Infer`, `Recurse`) appears inside `Match`/`Subscribe`/`Validate` payloads via `sema-engine`'s `ReadPlan`, never as a root. |
 
 NOTA text containing Nexus records is the only non-Signal messaging
 surface in the sema-ecosystem. It is transient — never persisted,
@@ -94,8 +94,12 @@ The daemon holds, per open connection:
 - Open subscription registration (one subscription per
   connection; events stream until close).
 
-Nothing else. No correlation-id mappings (replies pair to
-requests by **position** on the connection — FIFO). No
+Nothing else. No domain correlation IDs in payloads —
+request/reply matching is frame-layer `ExchangeIdentifier` state
+(session epoch + lane + monotonic sequence) negotiated by
+`signal-core` at handshake. Domain payloads never carry transport
+identifiers. Nexus's client-facing text leg stays single-flight
+FIFO on each connection; the Signal leg to criome is async. No
 fallback-file dispatch. No resume after disconnect (durable
 work is criome-state, fetched via `Match`). No sema cache.
 
@@ -144,7 +148,11 @@ Kameo.
   criome.
 - **No state survives a request.** Per-connection state dies
   with the connection; durable state lives in criome's sema.
-- **No correlation IDs.** Position pairs replies to requests.
+- **No domain correlation IDs.** Request/reply matching is
+  frame-layer `ExchangeIdentifier` state owned by `signal-core`.
+  Domain payloads never carry transport identifiers. The Nexus
+  daemon's client-facing text leg is single-flight FIFO; the
+  Signal leg to criome is async.
 - **One text construct, one typed value.** The mechanical
   translation rule is the perfect-specificity
   invariant
@@ -166,8 +174,8 @@ sequences, explicit request records, and schema-driven `PatternField<T>`
 decoding through ordinary `(Bind)` and `(Wildcard)` records. The renderer now
 emits named `SlotBinding` records for slotted query replies. The current parser
 still carries the previous Criome-specific M0 surface until `signal` is rebased
-onto the seven-root contract. Domain-parameterizing the daemon waits until a
-second concrete translator exists.
+onto the six-root contract with structural multi-op atomicity. Domain-
+parameterizing the daemon waits until a second concrete translator exists.
 
 ## What nexus-daemon does — and only that
 
@@ -221,7 +229,7 @@ both consume.
 
 ## Parser + renderer wire-in
 
-Adding a new typed Nexus payload under the existing seven root verbs lands
+Adding a new typed Nexus payload under the existing six root verbs lands
 in three places:
 
 1. The typed payload + closed-enum variant in

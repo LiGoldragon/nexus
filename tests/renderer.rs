@@ -33,7 +33,27 @@ fn diagnostic_outcome_renders_with_level_code_message() {
         .expect("render");
     assert_eq!(
         renderer.into_text(),
-        r#"(Diagnostic Error E0042 "thing went wrong")"#,
+        "(Diagnostic Error E0042 [thing went wrong])",
+    );
+}
+
+#[test]
+fn diagnostic_messages_with_apostrophes_render_as_bracket_strings() {
+    let mut renderer = Renderer::new();
+    renderer
+        .render_reply(&Reply::Outcome(OutcomeMessage::Diagnostic(Diagnostic {
+            level: DiagnosticLevel::Error,
+            code: "E0043".to_string(),
+            message: "thing's wrong".to_string(),
+            primary_site: None,
+            context: vec![],
+            suggestions: vec![],
+            durable_record: None,
+        })))
+        .expect("render");
+    assert_eq!(
+        renderer.into_text(),
+        "(Diagnostic Error E0043 [thing's wrong])",
     );
 }
 
@@ -79,7 +99,7 @@ fn populated_records_node_renders_each_node_as_record() {
         .expect("render");
     assert_eq!(
         renderer.into_text(),
-        "[(SlotBinding 1024 (Node User)) (SlotBinding 1025 (Node Group))]"
+        "[(SlotBinding 1024 (Node [User])) (SlotBinding 1025 (Node [Group]))]"
     );
 }
 
@@ -133,7 +153,7 @@ fn two_replies_separate_with_newline() {
         .expect("second");
     assert_eq!(
         renderer.into_text(),
-        "(Ok)\n[(SlotBinding 1024 (Node User))]"
+        "(Ok)\n[(SlotBinding 1024 (Node [User]))]"
     );
 }
 

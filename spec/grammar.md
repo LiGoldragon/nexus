@@ -11,7 +11,8 @@ The core rule:
 
 Nexus is not an expression language. It has no operators, no function calls,
 and no special delimiter for query forms. A top-level request is always one of
-the seven closed Signal/Nexus root verb records. Payload records such as
+the six closed Signal/Nexus root verb records, or a sequence of such records
+forming an atomic multi-operation request. Payload records such as
 `NodeQuery`, `Project`, or `Constrain` may appear inside those verbs, but they
 are not standalone messages.
 
@@ -31,8 +32,8 @@ typed records in typed positions, not by a separate Nexus dialect.
 | Path | `Name:Nested` | Nested name separator |
 | Comment | `;; ...` | Line comment discarded by the parser |
 | Byte literal | `#a1b2c3` | Lowercase even-length hex bytes |
-| String | `"text"` | Inline quoted string |
-| Multiline string | `"""..."""` | Multiline string |
+| String | `[text]` | Inline bracket string |
+| Multiline string | `[|...|]` | Block bracket string |
 | Bare string | `bare-ident` | String when the schema expects `String` |
 
 The lexer token vocabulary is locked at the structural minimum:
@@ -66,8 +67,8 @@ fields.
 
 ```nexus
 (Point 3.0 4.0)
-(Node User)
-(Node "nexus daemon")
+(Node [User])
+(Node [nexus daemon])
 (Edge 100 101 Flow)
 (Line (Point 0.0 0.0) (Point 10.0 10.0))
 ```
@@ -96,7 +97,7 @@ A sequence opens with `[` and closes with `]`.
 ```nexus
 [(Node alice) (Node bob) (Node carol)]
 [100 101 102]
-[("name" 1) ("age" 2)]
+[([name] 1) ([age] 2)]
 []
 ```
 
@@ -126,10 +127,10 @@ struct NodeQuery {
 
 | Text | Receiving type | Meaning |
 |---|---|---|
-| `(Node User)` | `Node` | concrete data record |
+| `(Node [User])` | `Node` | concrete data record |
 | `(NodeQuery (Bind))` | `NodeQuery` | bind the `name` field |
 | `(NodeQuery (Wildcard))` | `NodeQuery` | wildcard match |
-| `(NodeQuery User)` | `NodeQuery` | concrete field match |
+| `(NodeQuery [User])` | `NodeQuery` | concrete field match |
 | `(Node (Bind))` | `Node` | parse error |
 
 `(Bind)` means "bind this typed field". The position already carries field
@@ -149,11 +150,16 @@ non-pattern value.
 Every top-level request is a root verb record. Tier 0 uses fully explicit
 request heads; a bare top-level domain record is not an implicit assert.
 
-The seven root verb heads are:
+The six root verb heads are:
 
 ```text
-Assert Mutate Retract Match Subscribe Atomic Validate
+Assert Mutate Retract Match Subscribe Validate
 ```
+
+`Atomic` is not a verb. Multi-operation atomic requests are written as a
+top-level sequence of root-verb records — the sequence itself is the atomic
+unit, mapping directly to `signal-core::Request<Payload>` carrying
+`NonEmpty<Operation<Payload>>`.
 
 `Query` is not a root verb. Read-algebra names such as `Constrain`, `Project`,
 `Aggregate`, `Infer`, and `Recurse` are also not root verbs. They are typed
@@ -161,14 +167,20 @@ payload records inside the root that owns the behavior, usually `Match`,
 `Subscribe`, or `Validate`.
 
 ```rust
-pub enum Request {
+pub enum Operation {
     Assert(AssertOperation),
     Mutate(MutateOperation),
     Retract(RetractOperation),
     Match(ReadPlan, Cardinality),
     Subscribe(ReadPlan, SubscriptionMode, Backpressure),
-    Atomic(AtomicOperation),
     Validate(ValidateRequest),
+}
+
+// A top-level Nexus request is a NonEmpty sequence of Operations.
+// Single-op requests render as one verb record; multi-op requests
+// render as a top-level sequence of verb records.
+pub struct Request {
+    pub operations: NonEmpty<Operation>,
 }
 
 pub enum ReadPlan {
@@ -184,17 +196,20 @@ pub enum ReadPlan {
 Examples:
 
 ```nexus
-(Assert (Node User))
+(Assert (Node [User]))
 (Assert (Edge 100 101 Flow))
 
-(Mutate 100 (Node "renamed"))
+(Mutate 100 (Node [renamed]))
 (Retract Node 100)
-(Atomic [(Assert (Node A)) (Assert (Node B))])
+
+;; Multi-operation atomic request — top-level sequence of verb records.
+[(Assert (Node A)) (Assert (Node B))]
+[(Retract (RoleClaim Designer)) (Assert (RoleClaim Poet))]
 
 (Match (NodeQuery (Bind)) Any)
 (Match (EdgeQuery 100 (Bind) Flow) (Limit 10))
 (Subscribe (NodeQuery (Bind)) ImmediateExtension Block)
-(Validate (Assert (Node "dry run")))
+(Validate (Assert (Node [dry run])))
 
 (Match (Aggregate (NodeQuery (Bind)) Count) Any)
 (Match (Project (NodeQuery (Bind)) (Fields [name])) Any)
@@ -218,17 +233,17 @@ Replies are typed records or sequences of typed records.
 
 ```nexus
 (Ok)
-(Diagnostic Error E0042 "no binding for unknown-target")
-[(Node User) (Node "nexus daemon")]
-[(Ok) (Diagnostic Error E0042 "conflict on slot 100") (Ok)]
+(Diagnostic Error E0042 [no binding for unknown-target])
+[(Node [User]) (Node [nexus daemon])]
+[(Ok) (Diagnostic Error E0042 [conflict on slot 100]) (Ok)]
 ```
 
 When a reply needs to carry the store slot beside a returned record, use a typed
 pair record rather than an anonymous tuple:
 
 ```nexus
-[(SlotBinding 1024 (Node User))
- (SlotBinding 1025 (Node "nexus daemon"))]
+[(SlotBinding 1024 (Node [User]))
+ (SlotBinding 1025 (Node [nexus daemon]))]
 ```
 
 `SlotBinding<T>` is the textual shape for `slot + value` reply data. It is a
@@ -244,7 +259,7 @@ new examples or new parser work.
 | Dropped form | Replacement |
 |---|---|
 | `(| Node @name |)` | `(Match (NodeQuery (Bind)) Any)` |
-| `[| op1 op2 |]` | `(Atomic [op1 op2])` |
+| `[| op1 op2 |]` | `[op1 op2]` — a top-level NonEmpty sequence of verb records is the atomic unit |
 | `{ name }` | `(Match (Project pattern (Fields [name])) cardinality)` |
 | `{| pat1 pat2 |}` | `(Match (Constrain [pat1 pat2] (Unify [name])) cardinality)` |
 | `~record` | `(Mutate slot record)` |
