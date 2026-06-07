@@ -7,9 +7,9 @@
 //!
 //! Per signal/ARCH the reply types are wire-only (no uniform
 //! `NotaEncode` derive); rendering is application-specific to
-//! the daemon. Data-record rendering goes through each record's
-//! `NotaEncode` impl, while records returned from Sema are
-//! wrapped in an explicit `SlotBinding` record so the text
+//! the daemon. Data-record rendering uses explicit Nexus heads
+//! (`Node`, `Edge`, `Graph`), while records returned from Sema
+//! are wrapped in an explicit `SlotBinding` record so the text
 //! boundary does not expose anonymous tuples.
 //!
 //! `Reply::HandshakeAccepted` / `HandshakeRejected` should
@@ -80,9 +80,15 @@ impl Renderer {
 
     fn render_outcome(outcome: &OutcomeMessage, encoder: &mut Encoder) -> Result<()> {
         match outcome {
-            OutcomeMessage::Ok(ok) => Ok(ok.encode(encoder)?),
+            OutcomeMessage::Ok(_) => Self::render_ok(encoder),
             OutcomeMessage::Diagnostic(diagnostic) => Self::render_diagnostic(diagnostic, encoder),
         }
+    }
+
+    fn render_ok(encoder: &mut Encoder) -> Result<()> {
+        encoder.start_record("Ok")?;
+        encoder.end_record()?;
+        Ok(())
     }
 
     /// `(Diagnostic <Level> <code> <message>)`. The full
@@ -107,32 +113,83 @@ impl Renderer {
     }
 
     fn render_node_bindings(items: &[(Slot<Node>, Node)], encoder: &mut Encoder) -> Result<()> {
-        Self::render_slot_bindings(items, encoder)
+        encoder.start_seq()?;
+        for (slot, value) in items {
+            Self::render_node_binding(slot, value, encoder)?;
+        }
+        encoder.end_seq()?;
+        Ok(())
     }
 
     fn render_edge_bindings(items: &[(Slot<Edge>, Edge)], encoder: &mut Encoder) -> Result<()> {
-        Self::render_slot_bindings(items, encoder)
+        encoder.start_seq()?;
+        for (slot, value) in items {
+            Self::render_edge_binding(slot, value, encoder)?;
+        }
+        encoder.end_seq()?;
+        Ok(())
     }
 
     fn render_graph_bindings(items: &[(Slot<Graph>, Graph)], encoder: &mut Encoder) -> Result<()> {
-        Self::render_slot_bindings(items, encoder)
-    }
-
-    fn render_slot_bindings<Value>(
-        items: &[(Slot<Value>, Value)],
-        encoder: &mut Encoder,
-    ) -> Result<()>
-    where
-        Value: NotaEncode,
-    {
         encoder.start_seq()?;
         for (slot, value) in items {
-            encoder.start_record("SlotBinding")?;
-            encoder.write_u64((*slot).into())?;
-            value.encode(encoder)?;
-            encoder.end_record()?;
+            Self::render_graph_binding(slot, value, encoder)?;
         }
         encoder.end_seq()?;
+        Ok(())
+    }
+
+    fn render_node_binding(slot: &Slot<Node>, value: &Node, encoder: &mut Encoder) -> Result<()> {
+        encoder.start_record("SlotBinding")?;
+        encoder.write_u64((*slot).into())?;
+        Self::render_node(value, encoder)?;
+        encoder.end_record()?;
+        Ok(())
+    }
+
+    fn render_edge_binding(slot: &Slot<Edge>, value: &Edge, encoder: &mut Encoder) -> Result<()> {
+        encoder.start_record("SlotBinding")?;
+        encoder.write_u64((*slot).into())?;
+        Self::render_edge(value, encoder)?;
+        encoder.end_record()?;
+        Ok(())
+    }
+
+    fn render_graph_binding(
+        slot: &Slot<Graph>,
+        value: &Graph,
+        encoder: &mut Encoder,
+    ) -> Result<()> {
+        encoder.start_record("SlotBinding")?;
+        encoder.write_u64((*slot).into())?;
+        Self::render_graph(value, encoder)?;
+        encoder.end_record()?;
+        Ok(())
+    }
+
+    fn render_node(value: &Node, encoder: &mut Encoder) -> Result<()> {
+        encoder.start_record("Node")?;
+        encoder.write_string(&value.name)?;
+        encoder.end_record()?;
+        Ok(())
+    }
+
+    fn render_edge(value: &Edge, encoder: &mut Encoder) -> Result<()> {
+        encoder.start_record("Edge")?;
+        value.from.encode(encoder)?;
+        value.to.encode(encoder)?;
+        value.kind.encode(encoder)?;
+        encoder.end_record()?;
+        Ok(())
+    }
+
+    fn render_graph(value: &Graph, encoder: &mut Encoder) -> Result<()> {
+        encoder.start_record("Graph")?;
+        encoder.write_string(&value.title)?;
+        value.nodes.encode(encoder)?;
+        value.edges.encode(encoder)?;
+        value.subgraphs.encode(encoder)?;
+        encoder.end_record()?;
         Ok(())
     }
 

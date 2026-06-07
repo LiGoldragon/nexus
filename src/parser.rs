@@ -15,7 +15,7 @@
 //! when opening each per-connection signal session.
 
 use nota_codec::{Decoder, NotaDecode, Token};
-use signal::{AssertOperation, Request};
+use signal::{AssertOperation, Edge, Graph, Node, RelationKind, Request, Slot};
 
 use crate::error::Result;
 
@@ -39,7 +39,7 @@ impl<'input> Parser<'input> {
         match self.decoder.peek_token()? {
             None => Ok(None),
             Some(Token::LParen) => {
-                let operation = AssertOperation::decode(&mut self.decoder)?;
+                let operation = self.next_assert_operation()?;
                 Ok(Some(Request::Assert(operation)))
             }
             Some(other) => Err(nota_codec::Error::UnexpectedToken {
@@ -48,5 +48,47 @@ impl<'input> Parser<'input> {
             }
             .into()),
         }
+    }
+
+    fn next_assert_operation(&mut self) -> Result<AssertOperation> {
+        self.decoder.expect_record_start()?;
+        let head = self.decoder.read_pascal_identifier()?;
+        let operation = match head.as_str() {
+            "Node" => AssertOperation::Node(self.next_node()?),
+            "Edge" => AssertOperation::Edge(self.next_edge()?),
+            "Graph" => AssertOperation::Graph(self.next_graph()?),
+            other => {
+                return Err(nota_codec::Error::UnknownVariant {
+                    enum_name: "AssertOperation",
+                    got: other.to_string(),
+                }
+                .into());
+            }
+        };
+        self.decoder.expect_record_end()?;
+        Ok(operation)
+    }
+
+    fn next_node(&mut self) -> Result<Node> {
+        Ok(Node {
+            name: String::decode(&mut self.decoder)?,
+        })
+    }
+
+    fn next_edge(&mut self) -> Result<Edge> {
+        Ok(Edge {
+            from: Slot::<Node>::decode(&mut self.decoder)?,
+            to: Slot::<Node>::decode(&mut self.decoder)?,
+            kind: RelationKind::decode(&mut self.decoder)?,
+        })
+    }
+
+    fn next_graph(&mut self) -> Result<Graph> {
+        Ok(Graph {
+            title: String::decode(&mut self.decoder)?,
+            nodes: Vec::<Slot<Node>>::decode(&mut self.decoder)?,
+            edges: Vec::<Slot<Edge>>::decode(&mut self.decoder)?,
+            subgraphs: Vec::<Slot<Graph>>::decode(&mut self.decoder)?,
+        })
     }
 }

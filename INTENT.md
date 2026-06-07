@@ -46,9 +46,9 @@ contract crates; Sema state belongs to the consuming component
   protocol version, one open subscription) dies with the connection;
   durable state lives downstream and is fetched via `Match`. No
   fallback-file dispatch, no resume after disconnect, no sema cache.
-- **No domain correlation identifiers.** Request/reply matching is
-  frame-layer `ExchangeIdentifier` state owned by `signal-core`; domain
-  payloads never carry transport identifiers.
+- **No domain correlation identifiers.** Request/reply matching stays
+  in the frame/session layer; domain payloads never carry transport
+  identifiers.
 - **NOTA strings come from bracket forms.** The text surface uses
   `[text]` / `[|text|]` bracket strings and typed pattern records
   (`(Bind)`, `(Wildcard)`); retired sigils and piped delimiters are not

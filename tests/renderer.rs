@@ -33,7 +33,7 @@ fn diagnostic_outcome_renders_with_level_code_message() {
         .expect("render");
     assert_eq!(
         renderer.into_text(),
-        "(Diagnostic Error E0042 [thing went wrong])",
+        "(Diagnostic Error [E0042] [thing went wrong])",
     );
 }
 
@@ -53,7 +53,7 @@ fn diagnostic_messages_with_apostrophes_render_as_bracket_strings() {
         .expect("render");
     assert_eq!(
         renderer.into_text(),
-        "(Diagnostic Error E0043 [thing's wrong])",
+        "(Diagnostic Error [E0043] [thing's wrong])",
     );
 }
 
@@ -164,6 +164,6 @@ fn local_error_renders_as_diagnostic_with_code() {
         .render_local_error(&nexus::Error::VerbNotInM0Scope { verb: "Mutate" })
         .expect("render");
     let text = renderer.into_text();
-    assert!(text.starts_with("(Diagnostic Error E0099"));
+    assert!(text.starts_with("(Diagnostic Error [E0099]"));
     assert!(text.contains("Mutate"));
 }

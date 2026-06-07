@@ -67,7 +67,7 @@ Does not own:
   (`NotaRecord`, `NotaEnum`, `NotaTransparent`,
   `NotaTryTransparent`, `NotaSum`) which Signal types apply.
   `PatternField<T>`, `(Bind)`, and `(Wildcard)` live in
-  signal-core as ordinary typed records over Nota syntax.
+  signal-sema as ordinary typed records over NOTA syntax.
 - The Signal envelope and per-verb typed IR — lives in
   signal.
 - Sema state — that's criome's exclusive concern.
@@ -95,9 +95,8 @@ The daemon holds, per open connection:
   connection; events stream until close).
 
 Nothing else. No domain correlation IDs in payloads —
-request/reply matching is frame-layer `ExchangeIdentifier` state
-(session epoch + lane + monotonic sequence) negotiated by
-`signal-core` at handshake. Domain payloads never carry transport
+request/reply matching stays in the frame/session layer, outside
+the domain records. Domain payloads never carry transport
 identifiers. Nexus's client-facing text leg stays single-flight
 FIFO on each connection; the Signal leg to criome is async. No
 fallback-file dispatch. No resume after disconnect (durable
@@ -148,9 +147,9 @@ Kameo.
   criome.
 - **No state survives a request.** Per-connection state dies
   with the connection; durable state lives in criome's sema.
-- **No domain correlation IDs.** Request/reply matching is
-  frame-layer `ExchangeIdentifier` state owned by `signal-core`.
-  Domain payloads never carry transport identifiers. The Nexus
+- **No domain correlation IDs.** Request/reply matching stays in
+  the frame/session layer. Domain payloads never carry transport
+  identifiers. The Nexus
   daemon's client-facing text leg is single-flight FIFO; the
   Signal leg to criome is async.
 - **One text construct, one typed value.** The mechanical
