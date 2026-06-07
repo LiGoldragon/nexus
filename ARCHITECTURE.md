@@ -31,9 +31,9 @@ client (nexus-cli, agents, editors, shell scripts)
    │
    ▼
 ┌──────────┐
-│  nexus   │   parse NOTA via nota-codec (Decoder::new)
+│  nexus   │   parse NOTA via nota-next (Document + Block)
 │ (daemon) │   build Signal frames, send to criome
-│          │   receive Signal replies, render to text via nota-codec (Encoder::new)
+│          │   receive Signal replies, render to text via nota-next value codecs
 └────┬─────┘
      │
      │ Signal (rkyv envelope around per-verb typed payloads)
@@ -59,13 +59,11 @@ Owns (`[lib]` + `[[bin]]` split):
 
 Does not own:
 
-- Lexer / Decoder / Encoder kernel — lives in
-  nota-codec.
+- NOTA structural parsing and value codecs — live in `nota-next`.
   Per-kind parsing of records, typed pattern markers, verbs, and
-  primitives is performed by the derives in
-  nota-derive
-  (`NotaRecord`, `NotaEnum`, `NotaTransparent`,
-  `NotaTryTransparent`, `NotaSum`) which Signal types apply.
+  primitives is performed through `NotaDecode` / `NotaEncode`
+  derives and hand-written implementations owned by the Signal
+  vocabulary crates.
   `PatternField<T>`, `(Bind)`, and `(Wildcard)` live in
   signal-sema as ordinary typed records over NOTA syntax.
 - The Signal envelope and per-verb typed IR — lives in
@@ -249,6 +247,6 @@ or grammar slots.
   criome/ARCHITECTURE.md
 - Signal (the rkyv form on the criome leg):
   signal/ARCHITECTURE.md
-- nota-codec (text codec used both for parsing client requests
+- nota-next (text codec used both for parsing client requests
   and rendering replies):
-  nota-codec/ARCHITECTURE.md
+  nota-next/ARCHITECTURE.md

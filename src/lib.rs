@@ -12,8 +12,8 @@
 //!
 //! All wire-protocol types live in
 //! [signal](https://github.com/LiGoldragon/signal). The
-//! parser/encoder primitives live in
-//! [nota-codec](https://github.com/LiGoldragon/nota-codec).
+//! parser/value-codec primitives live in
+//! [nota-next](https://github.com/LiGoldragon/nota-next).
 //!
 //! The daemon supervision tree:
 //!

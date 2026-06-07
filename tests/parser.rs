@@ -89,61 +89,33 @@ fn parses_two_requests_in_sequence() {
 fn retired_tilde_sigils_are_rejected_by_codec() {
     let mut parser = Parser::new("~(Node [User])");
     let result = parser.next_request();
-    assert!(matches!(
-        result,
-        Err(nexus::Error::Codec(nota_codec::Error::UnexpectedChar {
-            character: '~',
-            ..
-        }))
-    ));
+    assert!(matches!(result, Err(nexus::Error::Codec(_))));
 }
 
 #[test]
 fn retired_bang_sigils_are_rejected_by_codec() {
     let mut parser = Parser::new("!(Node [User])");
     let result = parser.next_request();
-    assert!(matches!(
-        result,
-        Err(nexus::Error::Codec(
-            nota_codec::Error::ReservedComparisonToken { token: '!', .. }
-        )),
-    ));
+    assert!(matches!(result, Err(nexus::Error::Codec(_))));
 }
 
 #[test]
 fn retired_question_sigils_are_rejected_by_codec() {
     let mut parser = Parser::new("?(Node [User])");
     let result = parser.next_request();
-    assert!(matches!(
-        result,
-        Err(nexus::Error::Codec(nota_codec::Error::UnexpectedChar {
-            character: '?',
-            ..
-        })),
-    ));
+    assert!(matches!(result, Err(nexus::Error::Codec(_))));
 }
 
 #[test]
 fn retired_star_sigils_are_rejected_by_codec() {
     let mut parser = Parser::new("*(Node [User])");
     let result = parser.next_request();
-    assert!(matches!(
-        result,
-        Err(nexus::Error::Codec(nota_codec::Error::UnexpectedChar {
-            character: '*',
-            ..
-        })),
-    ));
+    assert!(matches!(result, Err(nexus::Error::Codec(_))));
 }
 
 #[test]
 fn retired_atomic_delimiters_are_rejected_by_codec() {
     let mut parser = Parser::new("[| (Node [A]) (Node [B]) |]");
     let result = parser.next_request();
-    assert!(matches!(
-        result,
-        Err(nexus::Error::Codec(
-            nota_codec::Error::UnexpectedToken { .. }
-        )),
-    ));
+    assert!(matches!(result, Err(nexus::Error::Codec(_))));
 }

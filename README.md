@@ -9,7 +9,7 @@ translator daemon.
 - `spec/examples/` — illustrative examples showing explicit Nexus
   request records.
 - `src/` — the daemon implementation. Parses NOTA text containing
-  Nexus records via nota-codec, builds
+  Nexus records via nota-next, builds
   Signal frames, dials
   criome over UDS, serialises replies back to text.
 

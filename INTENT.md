@@ -14,10 +14,11 @@ text syntax.
 ## Repo-scope only
 
 This file carries vocabulary-and-translator intent for `nexus`. The
-NOTA codec kernel is `nota-codec`; the per-kind derives are
-`nota-derive`; the Signal envelope and typed IR live in the Signal
-contract crates; Sema state belongs to the consuming component
-(criome today). Workspace-shape intent stays in `primary/INTENT.md`.
+NOTA codec kernel is `nota-next`; the per-kind value derives are
+re-exported by that crate; the Signal envelope and typed IR live in
+the Signal contract crates; Sema state belongs to the consuming
+component (criome today). Workspace-shape intent stays in
+`primary/INTENT.md`.
 
 ## Goals
 
@@ -66,5 +67,5 @@ role goes away.
 - `ARCHITECTURE.md` — the two messaging surfaces, supervision tree,
   invariants, the parse/render wire-in, and translator scope.
 - `../nexus-cli/INTENT.md` — the thin reference text client.
-- `../nota-codec/ARCHITECTURE.md` — the NOTA codec kernel this consumes.
+- `../nota-next/ARCHITECTURE.md` — the NOTA codec kernel this consumes.
 - `primary/skills/nota-design.md` — bracket-string discipline.

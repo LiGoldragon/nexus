@@ -1,5 +1,5 @@
 //! Daemon-side errors. Parse-time errors carry through from
-//! [`nota_codec::Error`]; wire-frame decode errors from
+//! [`nota_next::NotaDecodeError`]; wire-frame decode errors from
 //! [`signal::FrameDecodeError`]; i/o from [`std::io::Error`].
 //! Daemon-specific failure modes (frames too large for the
 //! length prefix, criome rejecting the handshake, an unsupported
@@ -12,8 +12,8 @@ pub enum Error {
     #[error("i/o: {0}")]
     Io(#[from] std::io::Error),
 
-    #[error("nota-codec: {0}")]
-    Codec(#[from] nota_codec::Error),
+    #[error("nota-next: {0}")]
+    Codec(#[from] nota_next::NotaDecodeError),
 
     #[error("frame decode: {0}")]
     Frame(#[from] signal::FrameDecodeError),
