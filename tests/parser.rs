@@ -26,7 +26,7 @@ fn whitespace_only_input_returns_none() {
 
 #[test]
 fn parses_assert_node() {
-    let mut parser = Parser::new("(Node [User])");
+    let mut parser = Parser::new("(Node User)");
     let request = parser
         .next_request()
         .expect("Assert parse must succeed")
@@ -74,7 +74,7 @@ fn parses_assert_edge_with_relation_kind() {
 
 #[test]
 fn parses_two_requests_in_sequence() {
-    let mut parser = Parser::new("(Node [User]) (Edge 100 200 DependsOn)");
+    let mut parser = Parser::new("(Node User) (Edge 100 200 DependsOn)");
 
     let first = parser.next_request().expect("first").expect("yields");
     assert!(matches!(first, Request::Assert(AssertOperation::Node(_))));
@@ -87,35 +87,35 @@ fn parses_two_requests_in_sequence() {
 
 #[test]
 fn retired_tilde_sigils_are_rejected_by_codec() {
-    let mut parser = Parser::new("~(Node [User])");
+    let mut parser = Parser::new("~(Node User)");
     let result = parser.next_request();
     assert!(matches!(result, Err(nexus::Error::Codec(_))));
 }
 
 #[test]
 fn retired_bang_sigils_are_rejected_by_codec() {
-    let mut parser = Parser::new("!(Node [User])");
+    let mut parser = Parser::new("!(Node User)");
     let result = parser.next_request();
     assert!(matches!(result, Err(nexus::Error::Codec(_))));
 }
 
 #[test]
 fn retired_question_sigils_are_rejected_by_codec() {
-    let mut parser = Parser::new("?(Node [User])");
+    let mut parser = Parser::new("?(Node User)");
     let result = parser.next_request();
     assert!(matches!(result, Err(nexus::Error::Codec(_))));
 }
 
 #[test]
 fn retired_star_sigils_are_rejected_by_codec() {
-    let mut parser = Parser::new("*(Node [User])");
+    let mut parser = Parser::new("*(Node User)");
     let result = parser.next_request();
     assert!(matches!(result, Err(nexus::Error::Codec(_))));
 }
 
 #[test]
 fn retired_atomic_delimiters_are_rejected_by_codec() {
-    let mut parser = Parser::new("[| (Node [A]) (Node [B]) |]");
+    let mut parser = Parser::new("[| (Node A) (Node B) |]");
     let result = parser.next_request();
     assert!(matches!(result, Err(nexus::Error::Codec(_))));
 }

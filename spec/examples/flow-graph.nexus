@@ -9,7 +9,7 @@
 
 ;; Nodes
 
-(Assert (Node [User]))
+(Assert (Node User))
 (Assert (Node [nexus daemon]))
 (Assert (Node [criome daemon]))
 (Assert (Node [forge daemon]))

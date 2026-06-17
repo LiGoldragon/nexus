@@ -67,7 +67,7 @@ fields.
 
 ```nexus
 (Point 3.0 4.0)
-(Node [User])
+(Node User)
 (Node [nexus daemon])
 (Edge 100 101 Flow)
 (Line (Point 0.0 0.0) (Point 10.0 10.0))
@@ -127,10 +127,10 @@ struct NodeQuery {
 
 | Text | Receiving type | Meaning |
 |---|---|---|
-| `(Node [User])` | `Node` | concrete data record |
+| `(Node User)` | `Node` | concrete data record |
 | `(NodeQuery (Bind))` | `NodeQuery` | bind the `name` field |
 | `(NodeQuery (Wildcard))` | `NodeQuery` | wildcard match |
-| `(NodeQuery [User])` | `NodeQuery` | concrete field match |
+| `(NodeQuery User)` | `NodeQuery` | concrete field match |
 | `(Node (Bind))` | `Node` | parse error |
 
 `(Bind)` means "bind this typed field". The position already carries field
@@ -196,7 +196,7 @@ pub enum ReadPlan {
 Examples:
 
 ```nexus
-(Assert (Node [User]))
+(Assert (Node User))
 (Assert (Edge 100 101 Flow))
 
 (Mutate 100 (Node [renamed]))
@@ -234,7 +234,7 @@ Replies are typed records or sequences of typed records.
 ```nexus
 (Ok)
 (Diagnostic Error E0042 [no binding for unknown-target])
-[(Node [User]) (Node [nexus daemon])]
+[(Node User) (Node [nexus daemon])]
 [(Ok) (Diagnostic Error E0042 [conflict on slot 100]) (Ok)]
 ```
 
@@ -242,7 +242,7 @@ When a reply needs to carry the store slot beside a returned record, use a typed
 pair record rather than an anonymous tuple:
 
 ```nexus
-[(SlotBinding 1024 (Node [User]))
+[(SlotBinding 1024 (Node User))
  (SlotBinding 1025 (Node [nexus daemon]))]
 ```
 

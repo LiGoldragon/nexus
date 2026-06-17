@@ -10,7 +10,7 @@
 ;; State-changing requests
 ;; ------------------------------------------------------------------
 
-(Assert (Node [User]))
+(Assert (Node User))
 (Assert (Node [nexus daemon]))
 (Assert (Edge 100 101 Flow))
 
@@ -58,8 +58,8 @@
 (Ok)
 (Diagnostic Error E0099 [Mutate is outside the current daemon scope])
 
-[(Node [User])
+[(Node User)
  (Node [nexus daemon])]
 
-[(SlotBinding 1024 (Node [User]))
+[(SlotBinding 1024 (Node User))
  (SlotBinding 1025 (Node [nexus daemon]))]
