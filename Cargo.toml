@@ -26,6 +26,9 @@ path = "src/bin/render.rs"
 [dependencies]
 thiserror  = "2"
 tokio      = { version = "1", features = ["rt-multi-thread", "macros", "io-util", "net"] }
-kameo      = { version = "0.20", default-features = false, features = ["macros", "tracing"] }
+kameo      = { git = "https://github.com/LiGoldragon/kameo.git", branch = "main", default-features = false, features = ["macros", "tracing"] }
 signal     = { git = "https://github.com/LiGoldragon/signal.git", branch = "main" }
 nota-next  = { git = "https://github.com/LiGoldragon/nota-next.git", branch = "main" }
+
+[patch.crates-io]
+kameo = { git = "https://github.com/LiGoldragon/kameo.git", branch = "main" }
