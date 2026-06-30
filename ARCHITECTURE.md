@@ -11,6 +11,50 @@ daemon. It does not own a second parser or a second text syntax.
 > separate-translator role goes away. Today's nexus is a realization
 > step. See `~/primary/ESSENCE.md` §"Today and eventually".
 
+## Nexus the plane vs. nexus the translator
+
+The name "Nexus" carries two related meanings, and this repo owns the first
+while the archived intent below defines the second.
+
+This repo is **nexus the translator**: it owns the Nexus text vocabulary/spec
+and the NOTA↔Signal translator daemon, and it deliberately knows nothing about
+record meaning. The broader workspace **Nexus plane** is the decision/effect
+engine in the Signal/Nexus/SEMA triad — the layer this vocabulary ultimately
+gives a text surface to. These archived intent records define that plane:
+
+- **Decision/effect language (`fcsg`).** The Nexus plane has a schema-defined
+  decision/effect language for non-SEMA decisions: a typed `NexusDecision`
+  wraps `Signal`, `SemaWrite`, `SemaRead`, and `Effect`, and a typed
+  `NexusEffect` carries side-channel variants (Stash, Fanout, Summarize, Drop,
+  Enqueue, Preempt, Cascade). A generated runner loop executes it — Nexus
+  decides, the runner executes SEMA and effect actions, completions re-enter
+  Nexus, and only `NexusDecision::Signal(Output)` exits to wire. The existence
+  of the language is settled; the exact variant list and implementation cost
+  remain lower-magnitude proposals pending evidence.
+- **Recursive inner runtime engine (`fuls`).** Inside the Nexus plane sits a
+  second, recursive engine — the workspace meta/runtime control layer. The
+  outer engine makes per-request domain decisions; the inner engine makes
+  meta-decisions about the runtime itself: actor prioritization (run Nexus
+  actors over SEMA actors when the database is busy), backpressure (notify
+  clients when the database is overloaded), and scheduling of which actors run
+  when, so Nexus stays available to take organizing decisions even under load.
+- **Slim acknowledgement output (`vdiu`).** Nexus output is slim: input is a
+  query/decision, output a result/what-happened acknowledgement. Clients issue
+  follow-up queries for specific state rather than receiving everything; the
+  wire contract stays compact and identifier-shaped, with detail living in the
+  engine.
+- **Internal feature catalog (`z6qu`).** The Nexus interface — verbs and
+  objects in the nexus schema — is the engine's internal feature interface,
+  existing for visibility: every computation, filter/condition, conditional
+  write, or internal logic-feature is a declared Nexus verb+object so the full
+  feature surface is a readable catalog, never inline hidden logic. Nexus
+  covers any layer running typed-in → typed-out: internal IO, external calls
+  (e.g. cloud invoking a Cloudflare CLI), and all UIs, unifying them under one
+  execution plane. Its input and output sides are asymmetric — input is
+  facts/replies/events to decide from, output is commands/emissions — and a
+  Nexus result may itself be a Nexus object, making the plane a recursive
+  computation destination rather than always a final reply.
+
 1. `spec/grammar.md` — the canonical Nexus Tier 0 vocabulary/spec:
    explicit verb records written in NOTA syntax.
 2. `spec/examples/` — canonical and illustrative files showing
