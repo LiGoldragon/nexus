@@ -163,6 +163,10 @@ Kameo.
   `Match(GraphQuery { … })`). Failure to parse
   into a known kind is a parse-time error, not a downstream
   validation miss.
+- **NOTA strings come from bracket forms.** The text surface uses
+  `[text]` / `[|text|]` bracket strings and typed pattern records
+  (`(Bind)`, `(Wildcard)`); retired sigils and piped delimiters are
+  not part of the surface.
 
 ## Status
 
