@@ -9,7 +9,7 @@ daemon. It does not own a second parser or a second text syntax.
 > universal computing paradigm in Sema; at that point text↔record
 > translation is one operation inside the Sema substrate and nexus's
 > separate-translator role goes away. Today's nexus is a realization
-> step. See `~/primary/ESSENCE.md` §"Today and eventually".
+> step. See `~/primary/ARCHITECTURE.md` §"Workspace vision and intent".
 
 ## Nexus the plane vs. nexus the translator
 
