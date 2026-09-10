@@ -11,16 +11,6 @@ pub struct ConfigurationState<Configuration> {
     pub meta_configure_occurred: bool,
 }
 
-impl<Configuration> ConfigurationState<Configuration> {
-    /// Seed a fresh Sema with the executable's built-in default.
-    pub fn from_default(desired_configuration: Configuration) -> Self {
-        Self {
-            desired_configuration,
-            meta_configure_occurred: false,
-        }
-    }
-}
-
 /// A refused standard configuration lifecycle transition.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, thiserror::Error)]
 pub enum ConfigurationTransitionError {
@@ -33,6 +23,11 @@ pub enum ConfigurationTransitionError {
 /// Ordinary Configure remains available until a meta Configure occurs. Only
 /// the meta surface can close or reopen ordinary Configure.
 pub trait Configurable<Configuration> {
+    /// Seed a fresh Sema with the executable's built-in default.
+    fn from_default(desired_configuration: Configuration) -> Self
+    where
+        Self: Sized;
+
     fn desired_configuration(&self) -> &Configuration;
     fn meta_configure_occurred(&self) -> bool;
     fn ordinary_configure_if_unset(
@@ -44,6 +39,13 @@ pub trait Configurable<Configuration> {
 }
 
 impl<Configuration> Configurable<Configuration> for ConfigurationState<Configuration> {
+    fn from_default(desired_configuration: Configuration) -> Self {
+        Self {
+            desired_configuration,
+            meta_configure_occurred: false,
+        }
+    }
+
     fn desired_configuration(&self) -> &Configuration {
         &self.desired_configuration
     }
