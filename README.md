@@ -19,3 +19,9 @@ its domain state.
 is bound with and the peers that authority admits. The ordinary socket admits
 whoever the filesystem let through; the privileged socket is bound `0600` and
 answers only the user it belongs to.
+
+`Situation` is the observed half of that metadata: the store file a Nexus
+actually opened and the sockets it actually bound, written at bind and never
+read back as configuration. A store opened anywhere other than where its own
+record says it lives is a copy, and its recorded sockets belong to another
+process.

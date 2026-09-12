@@ -25,6 +25,14 @@ is bound leaves the Nexus with no privileged surface at all. What a refused peer
 is told is not universal: that is a value of the contract the socket bears, and
 stays with the component.
 
+`Situation`, `Situating` and `Situated` are the observed half of a Nexus's
+own metadata. `ConfigurationState` says where a Nexus intends to listen;
+`Situation` says where one actually listened and which store file it actually
+opened, written once both sockets are bound and never read back as
+configuration. A store is portable and its configuration is not, so a copy
+opened elsewhere would bind socket paths belonging to the Nexus still running
+where the original lives; `is_carried` is how the copy recognises itself.
+
 A kind enters this crate on its second implementation, never on its first. What
 a library may own is what every instance must do identically and getting wrong
 would be a defect rather than a design choice; a trait with no capability and no
