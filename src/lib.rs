@@ -7,8 +7,10 @@
 
 mod authority;
 mod configuration;
+mod relocation;
 mod situation;
 
 pub use authority::{Permissive, SocketAuthority};
 pub use configuration::{Configurable, ConfigurationState, ConfigurationTransitionError};
+pub use relocation::{Relocated, Relocating, Relocation};
 pub use situation::{Situated, Situating, Situation};
