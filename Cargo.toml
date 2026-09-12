@@ -1,6 +1,6 @@
 [package]
 name = "nexus"
-version = "0.4.0"
+version = "0.5.0"
 edition = "2024"
 rust-version = "1.88.0"
 license = "MIT OR Apache-2.0"
@@ -13,6 +13,7 @@ rkyv = { version = "0.8", default-features = false, features = ["std", "bytechec
 thiserror = "2"
 
 [dev-dependencies]
+tempfile = "3"
 
 [lints.rust]
 unsafe_code = "forbid"
