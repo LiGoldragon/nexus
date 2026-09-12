@@ -14,3 +14,8 @@ snapshot active and applies newly persisted socket settings on its next
 zero-argument start. Its stable Sema discovery path is executable-owned rather
 than mutable configuration, so configuration cannot redirect a Nexus away from
 its domain state.
+
+`SocketAuthority` and `Permissive` are the second shared kind: the mode a socket
+is bound with and the peers that authority admits. The ordinary socket admits
+whoever the filesystem let through; the privileged socket is bound `0600` and
+answers only the user it belongs to.

@@ -5,6 +5,8 @@
 
 #![forbid(unsafe_code)]
 
+mod authority;
 mod configuration;
 
+pub use authority::{Permissive, SocketAuthority};
 pub use configuration::{Configurable, ConfigurationState, ConfigurationTransitionError};
