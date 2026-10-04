@@ -62,8 +62,11 @@ pub trait Operating<M: Remembering>: Send + 'static {
     type Operation: Send + 'static;
     type Outcome: Send + 'static;
 
-    fn perform(&mut self, operation: Self::Operation, memory: &MemoryHandle<M>)
-        -> impl Future<Output = Self::Outcome> + Send;
+    fn perform(
+        &mut self,
+        operation: Self::Operation,
+        memory: &MemoryHandle<M>,
+    ) -> impl Future<Output = Self::Outcome> + Send;
 }
 
 /// A whole Nexus supplies its three concrete parts and its local addresses.
@@ -71,9 +74,9 @@ pub trait Nexus: Send + 'static {
     type Memory: Remembering;
     type Operation: Operating<Self::Memory>;
     type Signal: Signaling<
-        Operation = <Self::Operation as Operating<Self::Memory>>::Operation,
-        Outcome = <Self::Operation as Operating<Self::Memory>>::Outcome,
-    >;
+            Operation = <Self::Operation as Operating<Self::Memory>>::Operation,
+            Outcome = <Self::Operation as Operating<Self::Memory>>::Outcome,
+        >;
 
     fn signal() -> Self::Signal;
     fn operation() -> Self::Operation;
@@ -101,7 +104,11 @@ struct Reading<R>(R);
 impl<M: Remembering> Message<Change<M::Change>> for MemoryActor<M> {
     type Reply = Result<Changed, Infallible>;
 
-    async fn handle(&mut self, change: Change<M::Change>, _: &mut Context<Self, Self::Reply>) -> Self::Reply {
+    async fn handle(
+        &mut self,
+        change: Change<M::Change>,
+        _: &mut Context<Self, Self::Reply>,
+    ) -> Self::Reply {
         Ok(self.memory.change(change.0))
     }
 }
@@ -109,7 +116,11 @@ impl<M: Remembering> Message<Change<M::Change>> for MemoryActor<M> {
 impl<M: Remembering> Message<Reading<M::Reading>> for MemoryActor<M> {
     type Reply = Result<M::Remembered, Infallible>;
 
-    async fn handle(&mut self, reading: Reading<M::Reading>, _: &mut Context<Self, Self::Reply>) -> Self::Reply {
+    async fn handle(
+        &mut self,
+        reading: Reading<M::Reading>,
+        _: &mut Context<Self, Self::Reply>,
+    ) -> Self::Reply {
         Ok(self.memory.read(reading.0))
     }
 }
@@ -121,7 +132,10 @@ pub struct MemoryHandle<M: Remembering> {
 
 impl<M: Remembering> MemoryHandle<M> {
     pub async fn change(&self, change: M::Change) -> Changed {
-        self.actor.ask(Change(change)).await.unwrap_or(Changed::Failed)
+        self.actor
+            .ask(Change(change))
+            .await
+            .unwrap_or(Changed::Failed)
     }
 
     pub async fn read(&self, reading: M::Reading) -> Option<M::Remembered> {
@@ -142,7 +156,10 @@ impl<N: Nexus> Actor for OperationActor<N> {
     type Args = (N::Operation, MemoryHandle<N::Memory>);
     type Error = Infallible;
 
-    async fn on_start((operation, memory): Self::Args, _: ActorRef<Self>) -> Result<Self, Infallible> {
+    async fn on_start(
+        (operation, memory): Self::Args,
+        _: ActorRef<Self>,
+    ) -> Result<Self, Infallible> {
         Ok(Self { operation, memory })
     }
 }
@@ -152,7 +169,11 @@ struct Perform<O>(O);
 impl<N: Nexus> Message<Perform<OperationOf<N>>> for OperationActor<N> {
     type Reply = Result<OutcomeOf<N>, Infallible>;
 
-    async fn handle(&mut self, perform: Perform<OperationOf<N>>, _: &mut Context<Self, Self::Reply>) -> Self::Reply {
+    async fn handle(
+        &mut self,
+        perform: Perform<OperationOf<N>>,
+        _: &mut Context<Self, Self::Reply>,
+    ) -> Self::Reply {
         Ok(self.operation.perform(perform.0, &self.memory).await)
     }
 }
@@ -164,7 +185,9 @@ pub struct OperationHandle<N: Nexus> {
 
 impl<N: Nexus> Clone for OperationHandle<N> {
     fn clone(&self) -> Self {
-        Self { actor: self.actor.clone() }
+        Self {
+            actor: self.actor.clone(),
+        }
     }
 }
 
@@ -184,7 +207,10 @@ impl<N: Nexus> Actor for SignalActor<N> {
     type Args = (N::Signal, OperationHandle<N>);
     type Error = Infallible;
 
-    async fn on_start((signal, operation): Self::Args, _: ActorRef<Self>) -> Result<Self, Infallible> {
+    async fn on_start(
+        (signal, operation): Self::Args,
+        _: ActorRef<Self>,
+    ) -> Result<Self, Infallible> {
         Ok(Self { signal, operation })
     }
 }
@@ -240,8 +266,12 @@ impl<N: Nexus> MainActor<N> {
 pub trait Entering: Nexus + Sized {
     fn open(directory: PathBuf) -> Option<(MainActor<Self>, Door<Self>)> {
         let memory = Self::Memory::open(Admission { directory })?;
-        let memory = MemoryHandle { actor: MemoryActor::spawn(memory) };
-        let operation = OperationHandle { actor: OperationActor::<Self>::spawn((Self::operation(), memory)) };
+        let memory = MemoryHandle {
+            actor: MemoryActor::spawn(memory),
+        };
+        let operation = OperationHandle {
+            actor: OperationActor::<Self>::spawn((Self::operation(), memory)),
+        };
         let signal = SignalActor::<Self>::spawn((Self::signal(), operation.clone()));
         Some((MainActor { operation }, Door { signal }))
     }
@@ -291,7 +321,8 @@ async fn read_frame(stream: &mut UnixStream) -> std::io::Result<Vec<u8>> {
 
 async fn write_frame(stream: &mut UnixStream, frame: &[u8]) -> std::io::Result<()> {
     use tokio::io::AsyncWriteExt;
-    let length = u32::try_from(frame.len()).map_err(|_| std::io::Error::other("frame too large"))?;
+    let length =
+        u32::try_from(frame.len()).map_err(|_| std::io::Error::other("frame too large"))?;
     stream.write_all(&length.to_be_bytes()).await?;
     stream.write_all(frame).await?;
     stream.flush().await
