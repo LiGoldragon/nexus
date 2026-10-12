@@ -17,18 +17,55 @@ impl FixtureFactory for Fixture {
     fn wrapper() -> Self {
         Self {
             records: [
-                (90, Observation { process: Process { pid: 90, started: 900 }, parent: 80 }),
-                (80, Observation { process: Process { pid: 80, started: 800 }, parent: 70 }),
-                (70, Observation { process: Process { pid: 70, started: 700 }, parent: 1 }),
-                (1, Observation { process: Process { pid: 1, started: 1 }, parent: 0 }),
-            ].into(),
+                (
+                    90,
+                    Observation {
+                        process: Process {
+                            pid: 90,
+                            started: 900,
+                        },
+                        parent: 80,
+                    },
+                ),
+                (
+                    80,
+                    Observation {
+                        process: Process {
+                            pid: 80,
+                            started: 800,
+                        },
+                        parent: 70,
+                    },
+                ),
+                (
+                    70,
+                    Observation {
+                        process: Process {
+                            pid: 70,
+                            started: 700,
+                        },
+                        parent: 1,
+                    },
+                ),
+                (
+                    1,
+                    Observation {
+                        process: Process { pid: 1, started: 1 },
+                        parent: 0,
+                    },
+                ),
+            ]
+            .into(),
             replacement: None,
             reads: RefCell::new(0),
         }
     }
 
     fn ancestry(&self) -> Vec<Process> {
-        [90, 80, 70, 1].iter().map(|pid| self.records[pid].process.clone()).collect()
+        [90, 80, 70, 1]
+            .iter()
+            .map(|pid| self.records[pid].process.clone())
+            .collect()
     }
 }
 
@@ -41,7 +78,10 @@ impl ReadingProcesses for Fixture {
                 return Ok(replacement.clone());
             }
         }
-        self.records.get(&pid).cloned().ok_or(Unidentified::Vanished)
+        self.records
+            .get(&pid)
+            .cloned()
+            .ok_or(Unidentified::Vanished)
     }
 }
 
@@ -50,15 +90,30 @@ fn wrapper_edges_are_preserved_and_no_ancestor_is_substituted_for_peer() {
     let fixture = Fixture::wrapper();
     let ancestry = fixture.ancestry();
     assert_eq!(fixture.witness(90, &ancestry), Ok(ancestry.clone()));
-    assert_eq!(fixture.witness(90, &ancestry[1..].to_vec()), Err(Unidentified::PeerMismatch));
+    assert_eq!(
+        fixture.witness(90, &ancestry[1..].to_vec()),
+        Err(Unidentified::PeerMismatch)
+    );
 }
 
 #[test]
 fn unrelated_live_process_is_not_a_caller_or_a_claimed_parent() {
     let mut fixture = Fixture::wrapper();
-    let unrelated = Process { pid: 40, started: 400 };
-    fixture.records.insert(40, Observation { process: unrelated.clone(), parent: 1 });
-    assert_eq!(fixture.witness(90, &vec![unrelated.clone()]), Err(Unidentified::PeerMismatch));
+    let unrelated = Process {
+        pid: 40,
+        started: 400,
+    };
+    fixture.records.insert(
+        40,
+        Observation {
+            process: unrelated.clone(),
+            parent: 1,
+        },
+    );
+    assert_eq!(
+        fixture.witness(90, &vec![unrelated.clone()]),
+        Err(Unidentified::PeerMismatch)
+    );
     let mut claim = fixture.ancestry();
     claim[1] = unrelated;
     assert_eq!(fixture.witness(90, &claim), Err(Unidentified::Malformed));
@@ -89,7 +144,10 @@ fn reparent_during_observation_refuses_the_chain() {
     let mut changed = fixture.records[&80].clone();
     changed.parent = 1;
     fixture.replacement = Some((4, changed));
-    assert_eq!(fixture.witness(90, &fixture.ancestry()), Err(Unidentified::Malformed));
+    assert_eq!(
+        fixture.witness(90, &fixture.ancestry()),
+        Err(Unidentified::Malformed)
+    );
 }
 
 #[test]
@@ -98,7 +156,10 @@ fn ancestor_reuse_during_observation_refuses_the_chain() {
     let mut changed = fixture.records[&80].clone();
     changed.process.started += 1;
     fixture.replacement = Some((4, changed));
-    assert_eq!(fixture.witness(90, &fixture.ancestry()), Err(Unidentified::Reused));
+    assert_eq!(
+        fixture.witness(90, &fixture.ancestry()),
+        Err(Unidentified::Reused)
+    );
 }
 
 #[test]
@@ -116,19 +177,38 @@ fn missing_init_cycles_and_empty_claims_are_refused() {
 fn stat_parser_handles_spaces_parentheses_newlines_and_non_utf8_comm() {
     // Fields 3 (state), 4 (ppid), then fields 5..21, then 22 (starttime).
     let mut bytes = b"90 (name ) with\n( bytes\xff) S 80".to_vec();
-    for _ in 5..22 { bytes.extend_from_slice(b" 0"); }
+    for _ in 5..22 {
+        bytes.extend_from_slice(b" 0");
+    }
     bytes.extend_from_slice(b" 900 0\n");
-    assert_eq!(Observation::parse(90, &bytes), Ok(Observation {
-        process: Process { pid: 90, started: 900 }, parent: 80,
-    }));
+    assert_eq!(
+        Observation::parse(90, &bytes),
+        Ok(Observation {
+            process: Process {
+                pid: 90,
+                started: 900
+            },
+            parent: 80,
+        })
+    );
     assert_eq!(Observation::parse(91, &bytes), Err(Unidentified::Malformed));
 }
 
 #[test]
 fn malformed_or_dead_stat_never_becomes_a_process() {
-    for bytes in [b"90 comm S 80".as_slice(), b"90 (comm) ? 80", b"90 (comm) S 80"] {
+    for bytes in [
+        b"90 comm S 80".as_slice(),
+        b"90 (comm) ? 80",
+        b"90 (comm) S 80",
+    ] {
         assert_eq!(Observation::parse(90, bytes), Err(Unidentified::Malformed));
     }
-    assert_eq!(Observation::parse(90, b"90 (comm) Z 80"), Err(Unidentified::Vanished));
-    assert_eq!(Observation::parse(-1, b"-1 (comm) S 0"), Err(Unidentified::Malformed));
+    assert_eq!(
+        Observation::parse(90, b"90 (comm) Z 80"),
+        Err(Unidentified::Vanished)
+    );
+    assert_eq!(
+        Observation::parse(-1, b"-1 (comm) S 0"),
+        Err(Unidentified::Malformed)
+    );
 }

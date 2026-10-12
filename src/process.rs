@@ -37,8 +37,8 @@ pub trait Witnessing {
 
 impl Witnessing for UnixStream {
     fn witness(&self, claimed: &Ancestry) -> Result<Ancestry, Unidentified> {
-        let credentials = rustix::net::sockopt::socket_peercred(self)
-            .map_err(|_| Unidentified::PeerMismatch)?;
+        let credentials =
+            rustix::net::sockopt::socket_peercred(self).map_err(|_| Unidentified::PeerMismatch)?;
         let pid = i64::from(credentials.pid.as_raw_nonzero().get());
         Procfs.witness(pid, claimed)
     }

@@ -41,7 +41,8 @@ fn real_socket_cli_through_wrapper_keeps_the_parent_edge() {
         .args(["--exact", "wrapped_cli", "--nocapture"])
         .env("NEXUS_IDENTITY_FIXTURE_STAGE", "wrapper")
         .env("NEXUS_IDENTITY_FIXTURE_SOCKET", &path)
-        .spawn().unwrap();
+        .spawn()
+        .unwrap();
     let wrapper_pid = i64::from(child.id());
     let mut child = ChildGuard(child);
     let deadline = Instant::now() + Duration::from_secs(10);
@@ -50,14 +51,21 @@ fn real_socket_cli_through_wrapper_keeps_the_parent_edge() {
             Ok((socket, _)) => break socket,
             Err(error) if error.kind() == std::io::ErrorKind::WouldBlock => {
                 assert!(Instant::now() < deadline, "owned fixture did not connect");
-                assert!(child.0.try_wait().unwrap().is_none(), "wrapper exited early");
+                assert!(
+                    child.0.try_wait().unwrap().is_none(),
+                    "wrapper exited early"
+                );
                 thread::sleep(Duration::from_millis(5));
             }
             Err(error) => panic!("accept: {error}"),
         }
     };
-    socket.set_read_timeout(Some(Duration::from_secs(10))).unwrap();
-    socket.set_write_timeout(Some(Duration::from_secs(10))).unwrap();
+    socket
+        .set_read_timeout(Some(Duration::from_secs(10)))
+        .unwrap();
+    socket
+        .set_write_timeout(Some(Duration::from_secs(10)))
+        .unwrap();
     let mut size = [0; 4];
     socket.read_exact(&mut size).unwrap();
     let size = u32::from_le_bytes(size) as usize;
@@ -70,7 +78,10 @@ fn real_socket_cli_through_wrapper_keeps_the_parent_edge() {
     assert_ne!(claim[0].pid, wrapper_pid);
     assert_eq!(claim[1].pid, wrapper_pid);
     assert_eq!(claim[2].pid, i64::from(std::process::id()));
-    assert_eq!(socket.witness(&claim[1..].to_vec()), Err(Unidentified::PeerMismatch));
+    assert_eq!(
+        socket.witness(&claim[1..].to_vec()),
+        Err(Unidentified::PeerMismatch)
+    );
     let mut forged = claim.clone();
     forged[1] = claim[2].clone();
     assert_eq!(socket.witness(&forged), Err(Unidentified::Malformed));
@@ -81,22 +92,34 @@ fn real_socket_cli_through_wrapper_keeps_the_parent_edge() {
 // Invoked as owned fixture subprocesses; inert in a normal test invocation.
 #[test]
 fn wrapped_cli() {
-    let Ok(stage) = std::env::var("NEXUS_IDENTITY_FIXTURE_STAGE") else { return; };
+    let Ok(stage) = std::env::var("NEXUS_IDENTITY_FIXTURE_STAGE") else {
+        return;
+    };
     if stage == "wrapper" {
-        let mut child = ChildGuard(Command::new(std::env::current_exe().unwrap())
-            .args(["--exact", "wrapped_cli", "--nocapture"])
-            .env("NEXUS_IDENTITY_FIXTURE_STAGE", "cli")
-            .spawn().unwrap());
+        let mut child = ChildGuard(
+            Command::new(std::env::current_exe().unwrap())
+                .args(["--exact", "wrapped_cli", "--nocapture"])
+                .env("NEXUS_IDENTITY_FIXTURE_STAGE", "cli")
+                .spawn()
+                .unwrap(),
+        );
         assert!(child.0.wait().unwrap().success());
         return;
     }
     assert_eq!(stage, "cli");
     let claim = Process::current().unwrap().identify().unwrap();
-    let mut socket = UnixStream::connect(std::env::var_os("NEXUS_IDENTITY_FIXTURE_SOCKET").unwrap()).unwrap();
-    socket.set_read_timeout(Some(Duration::from_secs(10))).unwrap();
-    socket.set_write_timeout(Some(Duration::from_secs(10))).unwrap();
+    let mut socket =
+        UnixStream::connect(std::env::var_os("NEXUS_IDENTITY_FIXTURE_SOCKET").unwrap()).unwrap();
+    socket
+        .set_read_timeout(Some(Duration::from_secs(10)))
+        .unwrap();
+    socket
+        .set_write_timeout(Some(Duration::from_secs(10)))
+        .unwrap();
     let bytes = rkyv::to_bytes::<rkyv::rancor::Error>(&claim).unwrap();
-    socket.write_all(&(bytes.len() as u32).to_le_bytes()).unwrap();
+    socket
+        .write_all(&(bytes.len() as u32).to_le_bytes())
+        .unwrap();
     socket.write_all(&bytes).unwrap();
     let mut acknowledged = [0];
     socket.read_exact(&mut acknowledged).unwrap();

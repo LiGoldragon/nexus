@@ -18,21 +18,25 @@ impl Parsing for Observation {
         }
         // comm is arbitrary bytes and can contain spaces, newlines and ')'.
         // Locate its final delimiter before interpreting numeric fields.
-        let open = bytes.iter().position(|b| *b == b'(')
+        let open = bytes
+            .iter()
+            .position(|b| *b == b'(')
             .ok_or(Unidentified::Malformed)?;
-        let close = bytes.windows(2).rposition(|pair| pair == b") ")
+        let close = bytes
+            .windows(2)
+            .rposition(|pair| pair == b") ")
             .ok_or(Unidentified::Malformed)?;
         if open == 0 || close < open || bytes[open - 1] != b' ' {
             return Err(Unidentified::Malformed);
         }
         let declared = std::str::from_utf8(&bytes[..open - 1])
-            .ok().and_then(|value| value.parse::<i64>().ok())
+            .ok()
+            .and_then(|value| value.parse::<i64>().ok())
             .ok_or(Unidentified::Malformed)?;
         if declared != pid {
             return Err(Unidentified::Malformed);
         }
-        let tail = std::str::from_utf8(&bytes[close + 2..])
-            .map_err(|_| Unidentified::Malformed)?;
+        let tail = std::str::from_utf8(&bytes[close + 2..]).map_err(|_| Unidentified::Malformed)?;
         let fields: Vec<_> = tail.split_ascii_whitespace().collect();
         let state = *fields.first().ok_or(Unidentified::Malformed)?;
         if matches!(state, "Z" | "X" | "x") {
@@ -41,14 +45,21 @@ impl Parsing for Observation {
         if !matches!(state, "R" | "S" | "D" | "T" | "t" | "W" | "K" | "P" | "I") {
             return Err(Unidentified::Malformed);
         }
-        let parent = fields.get(1).and_then(|value| value.parse::<i64>().ok())
+        let parent = fields
+            .get(1)
+            .and_then(|value| value.parse::<i64>().ok())
             .ok_or(Unidentified::Malformed)?;
-        let started = fields.get(19).and_then(|value| value.parse::<i64>().ok())
+        let started = fields
+            .get(19)
+            .and_then(|value| value.parse::<i64>().ok())
             .ok_or(Unidentified::Malformed)?;
         if parent < 0 || parent > i64::from(i32::MAX) || started < 0 {
             return Err(Unidentified::Malformed);
         }
-        Ok(Self { process: Process { pid, started }, parent })
+        Ok(Self {
+            process: Process { pid, started },
+            parent,
+        })
     }
 }
 
@@ -91,7 +102,11 @@ pub(super) trait Collecting: ReadingProcesses {
             let parent = observation.parent;
             chain.push(observation);
             if pid == 1 {
-                return if parent == 0 { Ok(chain) } else { Err(Unidentified::Malformed) };
+                return if parent == 0 {
+                    Ok(chain)
+                } else {
+                    Err(Unidentified::Malformed)
+                };
             }
             if parent == 0 {
                 // A procfs view not rooted in our namespace cannot prove init.
@@ -107,10 +122,16 @@ pub(super) trait Collecting: ReadingProcesses {
         let second = self.sweep(expected)?;
         if first != second {
             let reused = first.iter().any(|before| {
-                second.iter().any(|after| before.process.pid == after.process.pid
-                    && before.process.started != after.process.started)
+                second.iter().any(|after| {
+                    before.process.pid == after.process.pid
+                        && before.process.started != after.process.started
+                })
             });
-            return Err(if reused { Unidentified::Reused } else { Unidentified::Malformed });
+            return Err(if reused {
+                Unidentified::Reused
+            } else {
+                Unidentified::Malformed
+            });
         }
         Ok(second.into_iter().map(|entry| entry.process).collect())
     }
@@ -125,10 +146,15 @@ pub(super) trait Collecting: ReadingProcesses {
         }
         let observed = self.collect(first)?;
         if observed != *claimed {
-            let reused = observed.iter().zip(claimed).any(|(actual, claim)| {
-                actual.pid == claim.pid && actual.started != claim.started
+            let reused = observed
+                .iter()
+                .zip(claimed)
+                .any(|(actual, claim)| actual.pid == claim.pid && actual.started != claim.started);
+            return Err(if reused {
+                Unidentified::Reused
+            } else {
+                Unidentified::Malformed
             });
-            return Err(if reused { Unidentified::Reused } else { Unidentified::Malformed });
         }
         Ok(observed)
     }

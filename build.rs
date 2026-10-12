@@ -8,7 +8,9 @@ fn main() {
     let file = Potential::<File>::from(source)
         .actualize()
         .unwrap_or_else(|_| panic!("read Nexus Library"));
-    let generated = file.generate().unwrap_or_else(|_| panic!("generate Nexus Library"));
+    let generated = file
+        .generate()
+        .unwrap_or_else(|_| panic!("generate Nexus Library"));
     assert_eq!(
         generated,
         std::fs::read_to_string(root.join("src/generated/library.rs")).expect("generated"),
