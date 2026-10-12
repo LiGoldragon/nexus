@@ -73,10 +73,11 @@ impl ReadingProcesses for Fixture {
     fn read(&self, pid: i64) -> Result<Observation, Unidentified> {
         let mut reads = self.reads.borrow_mut();
         *reads += 1;
-        if let Some((after, replacement)) = &self.replacement {
-            if *reads > *after && replacement.process.pid == pid {
-                return Ok(replacement.clone());
-            }
+        if let Some((after, replacement)) = &self.replacement
+            && *reads > *after
+            && replacement.process.pid == pid
+        {
+            return Ok(replacement.clone());
         }
         self.records
             .get(&pid)
