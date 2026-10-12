@@ -30,7 +30,7 @@
               relativePath = pkgs.lib.removePrefix "${toString ./.}/" (toString path);
             in
             !(relativePath == "target" || pkgs.lib.hasPrefix "target/" relativePath)
-            && craneLib.filterCargoSources path type;
+            && (pkgs.lib.hasSuffix ".ethos" path || craneLib.filterCargoSources path type);
         };
         commonArguments = { src = source; strictDeps = true; };
         cargoArtifacts = craneLib.buildDepsOnly commonArguments;
@@ -38,6 +38,10 @@
         packages.default = craneLib.buildPackage (commonArguments // { inherit cargoArtifacts; });
         checks = {
           test = craneLib.cargoTest (commonArguments // { inherit cargoArtifacts; });
+          test-datom = craneLib.cargoTest (commonArguments // {
+            inherit cargoArtifacts;
+            cargoTestExtraArgs = "--all-features";
+          });
           fmt = craneLib.cargoFmt { src = source; };
           clippy = craneLib.cargoClippy (commonArguments // {
             inherit cargoArtifacts;
@@ -50,4 +54,3 @@
         };
       });
 }
-
