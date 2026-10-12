@@ -1,0 +1,30 @@
+; Process identities are local to one host, PID namespace and boot.
+; Started is /proc/<pid>/stat field 22: clock ticks since boot, not wall time.
+; A persisted binding must be invalidated when its observed boot changes;
+; Pid and Started alone cannot detect a different boot.
+
+Library ; Shared process data, observation capability and its bearer.
+[] ; Imports: the contract uses intrinsic types only.
+[ ; Types: a process identity, its ordered ancestry and observation refusals.
+   Pid.Integer
+   Started.Integer
+   Process.{ Pid Started } ; A process identifier and its kernel start ticks.
+   Ancestry.Vector<Process> ; Sending CLI first, its parents next, namespace init last.
+   Unidentified.[ ; Why a claimed process chain cannot be trusted.
+      PeerMismatch
+      Vanished
+      Reused
+      Malformed ] ]
+[ ; Traits: observation of an existing process identity.
+   Identifiable.[ ; Re-observe this process and its complete parent chain.
+      identify.[ Result<Ancestry Unidentified> ] ] ] ; Yield the witnessed chain or a refusal.
+[ ; Associations: Process bears the observation capability.
+   Process.[ Identifiable ] ] ; The implementation belongs to Process.
+
+; identify re-observes this Process and its parent chain from the kernel.
+; It refuses a vanished process, changed start ticks, or malformed chain.
+; The receiver anchors the first claimed element to socket peer credentials,
+; re-observes that peer and its ancestry, and compares the entire chain.
+; A nonempty, ordered claim is required; a live unrelated process is no proof.
+; Shells and wrappers remain in the witnessed chain; none are skipped here.
+; Flow alone searches that validated ancestry for an address binding.
