@@ -5,13 +5,153 @@
 //! operation reaches memory. A signal implementation receives neither an
 //! admission nor a memory handle.
 
-use std::convert::Infallible;
-use std::future::Future;
-use std::path::{Path, PathBuf};
+use std::{
+    error::Error,
+    future::Future,
+    path::{Path, PathBuf},
+    sync::Arc,
+};
 
 use kameo::actor::{Actor, ActorRef, Spawn};
 use kameo::message::{Context, Message};
 use tokio::net::UnixStream;
+use tokio::{sync::watch, task::JoinHandle};
+
+/// Observable process/task lifetime for a Nexus-owned component.
+#[derive(Clone, Debug)]
+pub enum LifecycleState {
+    Starting,
+    Running,
+    Failed(LifecycleFailure),
+    Stopping,
+    Stopped,
+}
+
+/// Shared, source-preserving failure reported both in state and by join.
+pub type LifecycleFailure = Arc<dyn Error + Send + Sync + 'static>;
+
+/// Cooperative cancellation passed from the generic Nexus lifetime to a typed component task.
+#[derive(Clone)]
+pub struct Cancellation {
+    cancelled: watch::Receiver<bool>,
+}
+
+impl Cancellation {
+    /// Wait until the owning Nexus begins shutdown.
+    pub async fn cancelled(&mut self) {
+        loop {
+            if *self.cancelled.borrow() {
+                return;
+            }
+            if self.cancelled.changed().await.is_err() {
+                return;
+            }
+        }
+    }
+}
+
+/// A typed component-owned task run under the Nexus process lifetime.
+pub trait RunningTask: Send + 'static {
+    fn run(
+        self,
+        cancellation: Cancellation,
+    ) -> impl Future<Output = Result<(), LifecycleFailure>> + Send + 'static;
+}
+
+/// The default component task for a Nexus with no background work.
+pub struct NoTask;
+
+impl RunningTask for NoTask {
+    fn run(
+        self,
+        cancellation: Cancellation,
+    ) -> impl Future<Output = Result<(), LifecycleFailure>> + Send + 'static {
+        async move {
+            let mut cancellation = cancellation;
+            cancellation.cancelled().await;
+            Ok(())
+        }
+    }
+}
+
+/// A supervised component task and its cancellation/join boundary.
+pub struct SupervisedTask {
+    cancel: watch::Sender<bool>,
+    state_sender: watch::Sender<LifecycleState>,
+    state: watch::Receiver<LifecycleState>,
+    task: JoinHandle<Result<(), LifecycleFailure>>,
+}
+
+impl SupervisedTask {
+    /// Start a typed task and publish its lifecycle transitions.
+    pub fn start<T: RunningTask>(task: T) -> Result<Self, tokio::runtime::TryCurrentError> {
+        let runtime = tokio::runtime::Handle::try_current()?;
+        let (cancel, cancelled) = watch::channel(false);
+        let (state_tx, state) = watch::channel(LifecycleState::Starting);
+        let state_sender = state_tx.clone();
+        let task = runtime.spawn(async move {
+            let cancellation = Cancellation { cancelled };
+            if *cancellation.cancelled.borrow() {
+                return Ok(());
+            }
+            state_tx.send_replace(LifecycleState::Running);
+            match task.run(cancellation).await {
+                Ok(()) => Ok(()),
+                Err(error) => {
+                    let failure: LifecycleFailure = Arc::new(error);
+                    Err(failure)
+                }
+            }
+        });
+        Ok(Self {
+            cancel,
+            state_sender,
+            state,
+            task,
+        })
+    }
+
+    /// Observe the latest lifecycle state.
+    pub fn state(&self) -> LifecycleState {
+        self.state.borrow().clone()
+    }
+
+    /// Subscribe to the latest lifecycle snapshot and future state changes.
+    pub fn subscribe(&self) -> watch::Receiver<LifecycleState> {
+        self.state.clone()
+    }
+
+    /// Request cooperative stop. The caller must still join to establish completion.
+    pub fn cancel(&self) {
+        self.cancel.send_replace(true);
+        let current = self.state.borrow().clone();
+        if matches!(current, LifecycleState::Starting | LifecycleState::Running) {
+            self.state_sender.send_replace(LifecycleState::Stopping);
+        }
+    }
+
+    /// Wait for task completion; task panics remain visible as join errors.
+    pub async fn join(self) -> Result<(), LifecycleFailure> {
+        let Self {
+            state_sender, task, ..
+        } = self;
+        match task.await {
+            Ok(Ok(())) => {
+                state_sender.send_replace(LifecycleState::Stopped);
+                Ok(())
+            }
+            Ok(Err(failure)) => {
+                state_sender.send_replace(LifecycleState::Failed(failure.clone()));
+                Err(failure)
+            }
+            Err(error) => {
+                let failure: LifecycleFailure = Arc::new(error);
+                state_sender.send_replace(LifecycleState::Failed(failure.clone()));
+                Err(failure)
+            }
+        }
+    }
+}
 
 /// The result of changing memory.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -74,9 +214,9 @@ pub trait Nexus: Send + 'static {
     type Memory: Remembering;
     type Operation: Operating<Self::Memory>;
     type Signal: Signaling<
-            Operation = <Self::Operation as Operating<Self::Memory>>::Operation,
-            Outcome = <Self::Operation as Operating<Self::Memory>>::Outcome,
-        >;
+        Operation = <Self::Operation as Operating<Self::Memory>>::Operation,
+        Outcome = <Self::Operation as Operating<Self::Memory>>::Outcome,
+    >;
 
     fn signal() -> Self::Signal;
     fn operation() -> Self::Operation;
@@ -276,8 +416,13 @@ pub trait Entering: Nexus + Sized {
         Some((MainActor { operation }, Door { signal }))
     }
 
-    /// Run the Unix listener until SIGTERM or Ctrl-C.
+    /// Run the Unix listener until Ctrl-C.
     fn enter() -> std::process::ExitCode {
+        Self::enter_with(NoTask)
+    }
+
+    /// Run the listener and a typed component task under one process lifetime.
+    fn enter_with<T: RunningTask>(task: T) -> std::process::ExitCode {
         let Ok(runtime) = tokio::runtime::Runtime::new() else {
             return std::process::ExitCode::FAILURE;
         };
@@ -292,16 +437,89 @@ pub trait Entering: Nexus + Sized {
             let Ok(listener) = tokio::net::UnixListener::bind(&path) else {
                 return std::process::ExitCode::FAILURE;
             };
-            loop {
+            let Ok(mut terminate) =
+                tokio::signal::unix::signal(tokio::signal::unix::SignalKind::terminate())
+            else {
+                let _ = std::fs::remove_file(&path);
+                return std::process::ExitCode::FAILURE;
+            };
+            let Ok(mut supervised) = SupervisedTask::start(task) else {
+                let _ = std::fs::remove_file(&path);
+                return std::process::ExitCode::FAILURE;
+            };
+            enum ExitCause {
+                Shutdown(std::io::Result<()>),
+                Component(Result<Result<(), LifecycleFailure>, tokio::task::JoinError>),
+                Listener(std::io::Error),
+            }
+            let cause = loop {
                 tokio::select! {
-                    signal = tokio::signal::ctrl_c() => {
-                        if signal.is_ok() { let _ = std::fs::remove_file(&path); }
-                        return std::process::ExitCode::SUCCESS;
-                    }
+                    signal = async {
+                        tokio::select! {
+                            ctrl_c = tokio::signal::ctrl_c() => ctrl_c,
+                            terminated = terminate.recv() => match terminated {
+                                Some(()) => Ok(()),
+                                None => Err(std::io::Error::other("SIGTERM listener closed")),
+                            },
+                        }
+                    } => break ExitCause::Shutdown(signal),
+                    joined = &mut supervised.task => break ExitCause::Component(joined),
                     accepted = listener.accept() => match accepted {
                         Ok((stream, _)) => { let _ = door.serve(stream).await; }
-                        Err(_) => return std::process::ExitCode::FAILURE,
+                        Err(error) => break ExitCause::Listener(error),
                     },
+                }
+            };
+            drop(listener);
+            match cause {
+                ExitCause::Shutdown(signal) => {
+                    let signal_ok = signal.is_ok();
+                    let state_sender = supervised.state_sender.clone();
+                    supervised.cancel();
+                    let joined = supervised.join().await;
+                    let _ = std::fs::remove_file(&path);
+                    if let Err(error) = signal {
+                        state_sender.send_replace(LifecycleState::Failed(Arc::new(error)));
+                    }
+                    if signal_ok && joined.is_ok() {
+                        std::process::ExitCode::SUCCESS
+                    } else {
+                        std::process::ExitCode::FAILURE
+                    }
+                }
+                ExitCause::Component(joined) => {
+                    match joined {
+                        Ok(Ok(())) => {
+                            supervised
+                                .state_sender
+                                .send_replace(LifecycleState::Stopped);
+                        }
+                        Ok(Err(failure)) => {
+                            supervised
+                                .state_sender
+                                .send_replace(LifecycleState::Failed(failure));
+                        }
+                        Err(error) => {
+                            supervised
+                                .state_sender
+                                .send_replace(LifecycleState::Failed(Arc::new(error)));
+                        }
+                    }
+                    let failed = matches!(supervised.state(), LifecycleState::Failed(_));
+                    let _ = std::fs::remove_file(&path);
+                    if failed {
+                        std::process::ExitCode::FAILURE
+                    } else {
+                        std::process::ExitCode::SUCCESS
+                    }
+                }
+                ExitCause::Listener(error) => {
+                    let state_sender = supervised.state_sender.clone();
+                    supervised.cancel();
+                    let _ = supervised.join().await;
+                    state_sender.send_replace(LifecycleState::Failed(Arc::new(error)));
+                    let _ = std::fs::remove_file(&path);
+                    std::process::ExitCode::FAILURE
                 }
             }
         })
