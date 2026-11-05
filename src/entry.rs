@@ -6,6 +6,7 @@
 //! admission nor a memory handle.
 
 use std::{
+    convert::Infallible,
     error::Error,
     future::Future,
     path::{Path, PathBuf},
