@@ -63,15 +63,10 @@ pub trait RunningTask: Send + 'static {
 pub struct NoTask;
 
 impl RunningTask for NoTask {
-    fn run(
-        self,
-        cancellation: Cancellation,
-    ) -> impl Future<Output = Result<(), LifecycleFailure>> + Send + 'static {
-        async move {
-            let mut cancellation = cancellation;
-            cancellation.cancelled().await;
-            Ok(())
-        }
+    async fn run(self, cancellation: Cancellation) -> Result<(), LifecycleFailure> {
+        let mut cancellation = cancellation;
+        cancellation.cancelled().await;
+        Ok(())
     }
 }
 
