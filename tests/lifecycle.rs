@@ -5,14 +5,9 @@ use nexus::{Cancellation, LifecycleFailure, LifecycleState, RunningTask, Supervi
 struct WaitForCancellation;
 
 impl RunningTask for WaitForCancellation {
-    fn run(
-        self,
-        mut cancellation: Cancellation,
-    ) -> impl Future<Output = Result<(), LifecycleFailure>> + Send + 'static {
-        async move {
-            cancellation.cancelled().await;
-            Ok(())
-        }
+    async fn run(self, mut cancellation: Cancellation) -> Result<(), LifecycleFailure> {
+        cancellation.cancelled().await;
+        Ok(())
     }
 }
 
