@@ -17,7 +17,7 @@ pub use entry::{
     Admission, Cancellation, Changed, Door, Entering, FrameError, FrameLength, FrameLimit,
     LifecycleFailure, LifecycleState, MainActor, MemoryActor, MemoryHandle, Nexus, NoTask,
     Operating, OperationActor, OperationHandle, Remembering, RunningTask, SignalActor, Signaling,
-    SupervisedTask,
+    SocketStartupError, SupervisedTask,
 };
 pub use relocation::{Relocated, Relocating, Relocation};
 pub use situation::{Bearing, Identifying, Situated, Situating, Situation, StoreIdentity};

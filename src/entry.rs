@@ -420,6 +420,39 @@ impl From<std::io::Error> for FrameError {
     }
 }
 
+/// The socket path could not be admitted for a new Nexus process.
+#[derive(Debug)]
+pub enum SocketStartupError {
+    Io(std::io::Error),
+    Occupied { path: PathBuf },
+}
+
+impl fmt::Display for SocketStartupError {
+    fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Self::Io(error) => error.fmt(formatter),
+            Self::Occupied { path } => {
+                write!(formatter, "socket path is occupied: {}", path.display())
+            }
+        }
+    }
+}
+
+impl Error for SocketStartupError {
+    fn source(&self) -> Option<&(dyn Error + 'static)> {
+        match self {
+            Self::Io(error) => Some(error),
+            Self::Occupied { .. } => None,
+        }
+    }
+}
+
+impl From<std::io::Error> for SocketStartupError {
+    fn from(error: std::io::Error) -> Self {
+        Self::Io(error)
+    }
+}
+
 impl<N: Nexus> Message<Frame> for SignalActor<N> {
     type Reply = Result<Vec<u8>, Infallible>;
 
@@ -563,34 +596,27 @@ fn managed_parent(path: &Path) -> std::io::Result<(PathBuf, FileIdentity, u32)> 
     Ok((parent.to_owned(), FileIdentity::of(&metadata), owner))
 }
 
-fn remove_owned_stale_socket(path: &Path, owner: u32) -> std::io::Result<()> {
-    use std::os::unix::fs::{FileTypeExt, MetadataExt};
-
-    let metadata = match std::fs::symlink_metadata(path) {
-        Ok(metadata) => metadata,
-        Err(error) if error.kind() == std::io::ErrorKind::NotFound => return Ok(()),
-        Err(error) => return Err(error),
-    };
-    if !metadata.file_type().is_socket() || metadata.uid() != owner {
-        return Err(std::io::Error::new(
-            std::io::ErrorKind::AlreadyExists,
-            "socket path is occupied by an unowned object",
-        ));
-    }
-    std::fs::remove_file(path)
-}
-
-fn bind_managed_socket(path: &Path) -> std::io::Result<(tokio::net::UnixListener, BoundSocket)> {
+fn bind_managed_socket(
+    path: &Path,
+) -> Result<(tokio::net::UnixListener, BoundSocket), SocketStartupError> {
     use std::os::unix::fs::{FileTypeExt, MetadataExt};
 
     let (parent, parent_identity, owner) = managed_parent(path)?;
-    remove_owned_stale_socket(path, owner)?;
+    match std::fs::symlink_metadata(path) {
+        Ok(_) => {
+            return Err(SocketStartupError::Occupied {
+                path: path.to_owned(),
+            });
+        }
+        Err(error) if error.kind() == std::io::ErrorKind::NotFound => {}
+        Err(error) => return Err(error.into()),
+    }
     let listener = tokio::net::UnixListener::bind(path)?;
     let metadata = std::fs::symlink_metadata(path)?;
     if !metadata.file_type().is_socket() || metadata.uid() != owner {
-        return Err(std::io::Error::other(
-            "bound socket does not belong to the effective user",
-        ));
+        return Err(
+            std::io::Error::other("bound socket does not belong to the effective user").into(),
+        );
     }
     let socket = BoundSocket {
         path: path.to_owned(),
@@ -874,7 +900,7 @@ mod frame_tests {
 
 #[cfg(test)]
 mod socket_cleanup_tests {
-    use super::bind_managed_socket;
+    use super::{SocketStartupError, bind_managed_socket};
     use std::os::unix::fs::PermissionsExt;
 
     #[test]
@@ -892,18 +918,47 @@ mod socket_cleanup_tests {
     }
 
     #[test]
-    fn an_owned_stale_socket_is_replaced_by_the_new_listener() {
+    fn an_inactive_socket_is_preserved_and_refused() {
         let directory = tempfile::tempdir().unwrap();
         let path = directory.path().join("nexus.sock");
         let stale = std::os::unix::net::UnixListener::bind(&path).unwrap();
         drop(stale);
         let runtime = tokio::runtime::Runtime::new().unwrap();
         runtime.block_on(async {
-            let (listener, socket) = bind_managed_socket(&path).unwrap();
-            drop(listener);
-            drop(socket);
-            assert!(!path.exists());
+            assert!(matches!(
+                bind_managed_socket(&path),
+                Err(SocketStartupError::Occupied { path: occupied }) if occupied == path
+            ));
         });
+        assert!(path.exists());
+    }
+
+    #[test]
+    fn an_active_socket_is_preserved_and_still_accepts() {
+        let directory = tempfile::tempdir().unwrap();
+        let path = directory.path().join("nexus.sock");
+        let active = std::os::unix::net::UnixListener::bind(&path).unwrap();
+        let runtime = tokio::runtime::Runtime::new().unwrap();
+        runtime.block_on(async {
+            assert!(matches!(
+                bind_managed_socket(&path),
+                Err(SocketStartupError::Occupied { path: occupied }) if occupied == path
+            ));
+        });
+        let client = std::os::unix::net::UnixStream::connect(&path).unwrap();
+        active.set_nonblocking(true).unwrap();
+        let deadline = std::time::Instant::now() + std::time::Duration::from_secs(1);
+        let accepted = loop {
+            match active.accept() {
+                Ok((accepted, _)) => break accepted,
+                Err(error) if error.kind() == std::io::ErrorKind::WouldBlock => {
+                    assert!(std::time::Instant::now() < deadline);
+                    std::thread::sleep(std::time::Duration::from_millis(10));
+                }
+                Err(error) => panic!("active listener failed to accept: {error}"),
+            }
+        };
+        drop((accepted, client));
     }
 
     #[test]
@@ -913,10 +968,10 @@ mod socket_cleanup_tests {
         std::fs::write(&path, b"replacement").unwrap();
         let runtime = tokio::runtime::Runtime::new().unwrap();
         runtime.block_on(async {
-            assert_eq!(
-                bind_managed_socket(&path).unwrap_err().kind(),
-                std::io::ErrorKind::AlreadyExists
-            );
+            assert!(matches!(
+                bind_managed_socket(&path),
+                Err(SocketStartupError::Occupied { path: occupied }) if occupied == path
+            ));
         });
         assert_eq!(std::fs::read(&path).unwrap(), b"replacement");
     }
@@ -958,6 +1013,48 @@ mod socket_cleanup_tests {
     }
 
     #[test]
+    fn an_existing_symlink_is_preserved_and_refused() {
+        let directory = tempfile::tempdir().unwrap();
+        let path = directory.path().join("nexus.sock");
+        let target = directory.path().join("target");
+        std::fs::write(&target, b"target").unwrap();
+        std::os::unix::fs::symlink(&target, &path).unwrap();
+        let runtime = tokio::runtime::Runtime::new().unwrap();
+        runtime.block_on(async {
+            assert!(matches!(
+                bind_managed_socket(&path),
+                Err(SocketStartupError::Occupied { path: occupied }) if occupied == path
+            ));
+        });
+        assert!(
+            std::fs::symlink_metadata(&path)
+                .unwrap()
+                .file_type()
+                .is_symlink()
+        );
+    }
+
+    #[test]
+    fn a_dangling_symlink_is_preserved_and_refused() {
+        let directory = tempfile::tempdir().unwrap();
+        let path = directory.path().join("nexus.sock");
+        std::os::unix::fs::symlink(directory.path().join("absent"), &path).unwrap();
+        let runtime = tokio::runtime::Runtime::new().unwrap();
+        runtime.block_on(async {
+            assert!(matches!(
+                bind_managed_socket(&path),
+                Err(SocketStartupError::Occupied { path: occupied }) if occupied == path
+            ));
+        });
+        assert!(
+            std::fs::symlink_metadata(&path)
+                .unwrap()
+                .file_type()
+                .is_symlink()
+        );
+    }
+
+    #[test]
     fn a_missing_socket_needs_no_cleanup() {
         let directory = tempfile::tempdir().unwrap();
         let path = directory.path().join("nexus.sock");
@@ -983,10 +1080,11 @@ mod socket_cleanup_tests {
         std::fs::set_permissions(directory.path(), std::fs::Permissions::from_mode(0o777)).unwrap();
         let runtime = tokio::runtime::Runtime::new().unwrap();
         runtime.block_on(async {
-            assert_eq!(
-                bind_managed_socket(&path).unwrap_err().kind(),
-                std::io::ErrorKind::PermissionDenied
-            );
+            assert!(matches!(
+                bind_managed_socket(&path),
+                Err(SocketStartupError::Io(error))
+                    if error.kind() == std::io::ErrorKind::PermissionDenied
+            ));
         });
         std::fs::set_permissions(directory.path(), std::fs::Permissions::from_mode(original))
             .unwrap();
