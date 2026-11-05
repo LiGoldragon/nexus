@@ -763,7 +763,7 @@ macro_rules! main {
 
 #[cfg(test)]
 mod frame_tests {
-    use super::{read_frame, FrameError, FrameLength, FrameLimit};
+    use super::{FrameError, FrameLength, FrameLimit, read_frame};
     use tokio::io::AsyncWriteExt;
     use tokio::net::UnixStream;
 
@@ -775,9 +775,7 @@ mod frame_tests {
             sender.write_all(&3_u32.to_be_bytes()).await.unwrap();
             sender.write_all(b"abc").await.unwrap();
             assert_eq!(
-                read_frame(&mut receiver, FrameLimit::new(3))
-                    .await
-                    .unwrap(),
+                read_frame(&mut receiver, FrameLimit::new(3)).await.unwrap(),
                 b"abc"
             );
         });
@@ -949,10 +947,12 @@ mod socket_cleanup_tests {
             std::os::unix::fs::symlink(&target, &path).unwrap();
             drop(socket);
         });
-        assert!(std::fs::symlink_metadata(&path)
-            .unwrap()
-            .file_type()
-            .is_symlink());
+        assert!(
+            std::fs::symlink_metadata(&path)
+                .unwrap()
+                .file_type()
+                .is_symlink()
+        );
     }
 
     #[test]
@@ -978,8 +978,7 @@ mod socket_cleanup_tests {
             .unwrap()
             .permissions()
             .mode();
-        std::fs::set_permissions(directory.path(), std::fs::Permissions::from_mode(0o777))
-            .unwrap();
+        std::fs::set_permissions(directory.path(), std::fs::Permissions::from_mode(0o777)).unwrap();
         let runtime = tokio::runtime::Runtime::new().unwrap();
         runtime.block_on(async {
             assert_eq!(
@@ -987,11 +986,8 @@ mod socket_cleanup_tests {
                 std::io::ErrorKind::PermissionDenied
             );
         });
-        std::fs::set_permissions(
-            directory.path(),
-            std::fs::Permissions::from_mode(original),
-        )
-        .unwrap();
+        std::fs::set_permissions(directory.path(), std::fs::Permissions::from_mode(original))
+            .unwrap();
         assert!(!path.exists());
     }
 
