@@ -11,6 +11,7 @@ publish = false
 [dependencies]
 kameo = "0.22"
 rkyv = { version = "0.8", default-features = false, features = ["std", "bytecheck", "little_endian", "pointer_width_32", "unaligned"] }
+rustix = { version = "1", features = ["process"] }
 thiserror = "2"
 tokio = { version = "1", features = ["rt-multi-thread", "net", "io-util", "signal"] }
 

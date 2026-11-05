@@ -297,6 +297,7 @@ version = "0.5.0"
 dependencies = [
  "kameo",
  "rkyv",
+ "rustix",
  "tempfile",
  "thiserror",
  "tokio",
