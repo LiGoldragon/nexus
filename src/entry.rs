@@ -422,7 +422,7 @@ impl From<std::io::Error> for FrameError {
 
 /// The socket path could not be admitted for a new Nexus process.
 #[derive(Debug)]
-pub enum SocketStartupError {
+enum SocketStartupError {
     Io(std::io::Error),
     Occupied { path: PathBuf },
 }
@@ -663,8 +663,11 @@ pub trait Entering: Nexus + Sized {
                 return std::process::ExitCode::FAILURE;
             };
             let path = Self::socket_path();
-            let Ok((listener, _bound_socket)) = bind_managed_socket(&path) else {
-                return std::process::ExitCode::FAILURE;
+            let (listener, _bound_socket) = match bind_managed_socket(&path) {
+                Ok(bound) => bound,
+                Err(SocketStartupError::Occupied { .. } | SocketStartupError::Io(_)) => {
+                    return std::process::ExitCode::FAILURE;
+                }
             };
             let Ok(mut terminate) =
                 tokio::signal::unix::signal(tokio::signal::unix::SignalKind::terminate())
