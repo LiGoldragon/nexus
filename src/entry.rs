@@ -210,9 +210,9 @@ pub trait Nexus: Send + 'static {
     type Memory: Remembering;
     type Operation: Operating<Self::Memory>;
     type Signal: Signaling<
-        Operation = <Self::Operation as Operating<Self::Memory>>::Operation,
-        Outcome = <Self::Operation as Operating<Self::Memory>>::Outcome,
-    >;
+            Operation = <Self::Operation as Operating<Self::Memory>>::Operation,
+            Outcome = <Self::Operation as Operating<Self::Memory>>::Outcome,
+        >;
 
     fn signal() -> Self::Signal;
     fn operation() -> Self::Operation;
