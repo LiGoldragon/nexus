@@ -14,9 +14,10 @@ mod situation;
 pub use authority::{Permissive, SocketAuthority};
 pub use configuration::{Configurable, ConfigurationState, ConfigurationTransitionError};
 pub use entry::{
-    Admission, Cancellation, Changed, Door, Entering, LifecycleFailure, LifecycleState, MainActor,
-    MemoryActor, MemoryHandle, Nexus, NoTask, Operating, OperationActor, OperationHandle,
-    Remembering, RunningTask, SignalActor, Signaling, SupervisedTask,
+    Admission, Cancellation, Changed, Door, Entering, FrameError, FrameLength, FrameLimit,
+    LifecycleFailure, LifecycleState, MainActor, MemoryActor, MemoryHandle, Nexus, NoTask,
+    Operating, OperationActor, OperationHandle, Remembering, RunningTask, SignalActor, Signaling,
+    SupervisedTask,
 };
 pub use relocation::{Relocated, Relocating, Relocation};
 pub use situation::{Bearing, Identifying, Situated, Situating, Situation, StoreIdentity};

@@ -8,6 +8,7 @@
 use std::{
     convert::Infallible,
     error::Error,
+    fmt,
     future::Future,
     path::{Path, PathBuf},
     sync::Arc,
@@ -353,6 +354,72 @@ impl<N: Nexus> Actor for SignalActor<N> {
 
 struct Frame(Vec<u8>);
 
+/// The byte length declared by an inbound transport frame.
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub struct FrameLength(u32);
+
+impl FrameLength {
+    pub const fn bytes(self) -> u32 {
+        self.0
+    }
+}
+
+/// The inclusive maximum byte length accepted from one inbound frame.
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub struct FrameLimit(u32);
+
+impl FrameLimit {
+    pub const fn new(bytes: u32) -> Self {
+        Self(bytes)
+    }
+
+    pub const fn bytes(self) -> u32 {
+        self.0
+    }
+}
+
+/// A transport frame could not be read within its configured bound.
+#[derive(Debug)]
+pub enum FrameError {
+    Io(std::io::Error),
+    Oversize {
+        observed_length: FrameLength,
+        limit: FrameLimit,
+    },
+}
+
+impl fmt::Display for FrameError {
+    fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Self::Io(error) => error.fmt(formatter),
+            Self::Oversize {
+                observed_length,
+                limit,
+            } => write!(
+                formatter,
+                "inbound frame length {} exceeds limit {}",
+                observed_length.bytes(),
+                limit.bytes()
+            ),
+        }
+    }
+}
+
+impl Error for FrameError {
+    fn source(&self) -> Option<&(dyn Error + 'static)> {
+        match self {
+            Self::Io(error) => Some(error),
+            Self::Oversize { .. } => None,
+        }
+    }
+}
+
+impl From<std::io::Error> for FrameError {
+    fn from(error: std::io::Error) -> Self {
+        Self::Io(error)
+    }
+}
+
 impl<N: Nexus> Message<Frame> for SignalActor<N> {
     type Reply = Result<Vec<u8>, Infallible>;
 
@@ -371,6 +438,7 @@ impl<N: Nexus> Message<Frame> for SignalActor<N> {
 /// The socket-facing address of the signal actor.
 pub struct Door<N: Nexus> {
     signal: ActorRef<SignalActor<N>>,
+    frame_limit: FrameLimit,
 }
 
 impl<N: Nexus> Door<N> {
@@ -380,10 +448,11 @@ impl<N: Nexus> Door<N> {
     }
 
     /// Serve one length-prefixed request and response over a Unix stream.
-    pub async fn serve(&self, mut stream: UnixStream) -> std::io::Result<()> {
-        let frame = read_frame(&mut stream).await?;
+    pub async fn serve(&self, mut stream: UnixStream) -> Result<(), FrameError> {
+        let frame = read_frame(&mut stream, self.frame_limit).await?;
         let response = self.knock(frame).await;
-        write_frame(&mut stream, &response).await
+        write_frame(&mut stream, &response).await?;
+        Ok(())
     }
 }
 
@@ -400,7 +469,7 @@ impl<N: Nexus> MainActor<N> {
 
 /// The one construction and serving path for every Nexus.
 pub trait Entering: Nexus + Sized {
-    fn open(directory: PathBuf) -> Option<(MainActor<Self>, Door<Self>)> {
+    fn open(directory: PathBuf, frame_limit: FrameLimit) -> Option<(MainActor<Self>, Door<Self>)> {
         let memory = Self::Memory::open(Admission { directory })?;
         let memory = MemoryHandle {
             actor: MemoryActor::spawn(memory),
@@ -409,21 +478,27 @@ pub trait Entering: Nexus + Sized {
             actor: OperationActor::<Self>::spawn((Self::operation(), memory)),
         };
         let signal = SignalActor::<Self>::spawn((Self::signal(), operation.clone()));
-        Some((MainActor { operation }, Door { signal }))
+        Some((
+            MainActor { operation },
+            Door {
+                signal,
+                frame_limit,
+            },
+        ))
     }
 
     /// Run the Unix listener until Ctrl-C.
-    fn enter() -> std::process::ExitCode {
-        Self::enter_with(NoTask)
+    fn enter(frame_limit: FrameLimit) -> std::process::ExitCode {
+        Self::enter_with(NoTask, frame_limit)
     }
 
     /// Run the listener and a typed component task under one process lifetime.
-    fn enter_with<T: RunningTask>(task: T) -> std::process::ExitCode {
+    fn enter_with<T: RunningTask>(task: T, frame_limit: FrameLimit) -> std::process::ExitCode {
         let Ok(runtime) = tokio::runtime::Runtime::new() else {
             return std::process::ExitCode::FAILURE;
         };
         runtime.block_on(async {
-            let Some((_main, door)) = Self::open(Self::directory()) else {
+            let Some((_main, door)) = Self::open(Self::directory(), frame_limit) else {
                 return std::process::ExitCode::FAILURE;
             };
             let path = Self::socket_path();
@@ -524,11 +599,18 @@ pub trait Entering: Nexus + Sized {
 
 impl<N: Nexus> Entering for N {}
 
-async fn read_frame(stream: &mut UnixStream) -> std::io::Result<Vec<u8>> {
+async fn read_frame(stream: &mut UnixStream, limit: FrameLimit) -> Result<Vec<u8>, FrameError> {
     use tokio::io::AsyncReadExt;
     let mut length = [0; 4];
     stream.read_exact(&mut length).await?;
-    let mut frame = vec![0; u32::from_be_bytes(length) as usize];
+    let length = FrameLength(u32::from_be_bytes(length));
+    if length.bytes() > limit.bytes() {
+        return Err(FrameError::Oversize {
+            observed_length: length,
+            limit,
+        });
+    }
+    let mut frame = vec![0; length.bytes() as usize];
     stream.read_exact(&mut frame).await?;
     Ok(frame)
 }
@@ -545,9 +627,120 @@ async fn write_frame(stream: &mut UnixStream, frame: &[u8]) -> std::io::Result<(
 /// Make a Nexus's daemon binary its standard entry point.
 #[macro_export]
 macro_rules! main {
-    ($nexus:ty) => {
+    ($nexus:ty, $frame_limit:expr) => {
         fn main() -> std::process::ExitCode {
-            <$nexus as $crate::Entering>::enter()
+            <$nexus as $crate::Entering>::enter($frame_limit)
         }
     };
+}
+
+#[cfg(test)]
+mod frame_tests {
+    use super::{read_frame, FrameError, FrameLength, FrameLimit};
+    use tokio::io::AsyncWriteExt;
+    use tokio::net::UnixStream;
+
+    #[test]
+    fn a_frame_at_the_limit_is_accepted() {
+        let runtime = tokio::runtime::Runtime::new().unwrap();
+        runtime.block_on(async {
+            let (mut sender, mut receiver) = UnixStream::pair().unwrap();
+            sender.write_all(&3_u32.to_be_bytes()).await.unwrap();
+            sender.write_all(b"abc").await.unwrap();
+            assert_eq!(
+                read_frame(&mut receiver, FrameLimit::new(3))
+                    .await
+                    .unwrap(),
+                b"abc"
+            );
+        });
+    }
+
+    #[test]
+    fn a_zero_length_frame_is_valid_at_a_zero_limit() {
+        let runtime = tokio::runtime::Runtime::new().unwrap();
+        runtime.block_on(async {
+            let (mut sender, mut receiver) = UnixStream::pair().unwrap();
+            sender.write_all(&0_u32.to_be_bytes()).await.unwrap();
+            assert!(
+                read_frame(&mut receiver, FrameLimit::new(0))
+                    .await
+                    .unwrap()
+                    .is_empty()
+            );
+        });
+    }
+
+    #[test]
+    fn an_oversize_frame_is_refused_from_its_length_before_its_body_arrives() {
+        let runtime = tokio::runtime::Runtime::new().unwrap();
+        runtime.block_on(async {
+            let (mut sender, mut receiver) = UnixStream::pair().unwrap();
+            sender.write_all(&4_u32.to_be_bytes()).await.unwrap();
+            let error = read_frame(&mut receiver, FrameLimit::new(3))
+                .await
+                .unwrap_err();
+            assert!(matches!(
+                error,
+                FrameError::Oversize {
+                    observed_length: FrameLength(4),
+                    limit: FrameLimit(3)
+                }
+            ));
+        });
+    }
+
+    #[test]
+    fn the_largest_declared_length_is_refused_from_its_header() {
+        let runtime = tokio::runtime::Runtime::new().unwrap();
+        runtime.block_on(async {
+            let (mut sender, mut receiver) = UnixStream::pair().unwrap();
+            sender.write_all(&u32::MAX.to_be_bytes()).await.unwrap();
+            let error = read_frame(&mut receiver, FrameLimit::new(u32::MAX - 1))
+                .await
+                .unwrap_err();
+            assert!(matches!(
+                error,
+                FrameError::Oversize {
+                    observed_length: FrameLength(u32::MAX),
+                    limit: FrameLimit(u32::MAX - 1)
+                }
+            ));
+        });
+    }
+
+    #[test]
+    fn a_truncated_length_is_an_io_error() {
+        let runtime = tokio::runtime::Runtime::new().unwrap();
+        runtime.block_on(async {
+            let (mut sender, mut receiver) = UnixStream::pair().unwrap();
+            sender.write_all(&[0, 1]).await.unwrap();
+            drop(sender);
+            let error = read_frame(&mut receiver, FrameLimit::new(3))
+                .await
+                .unwrap_err();
+            assert!(matches!(
+                error,
+                FrameError::Io(error) if error.kind() == std::io::ErrorKind::UnexpectedEof
+            ));
+        });
+    }
+
+    #[test]
+    fn a_truncated_body_is_an_io_error() {
+        let runtime = tokio::runtime::Runtime::new().unwrap();
+        runtime.block_on(async {
+            let (mut sender, mut receiver) = UnixStream::pair().unwrap();
+            sender.write_all(&3_u32.to_be_bytes()).await.unwrap();
+            sender.write_all(b"a").await.unwrap();
+            drop(sender);
+            let error = read_frame(&mut receiver, FrameLimit::new(3))
+                .await
+                .unwrap_err();
+            assert!(matches!(
+                error,
+                FrameError::Io(error) if error.kind() == std::io::ErrorKind::UnexpectedEof
+            ));
+        });
+    }
 }
