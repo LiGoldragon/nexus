@@ -824,13 +824,15 @@ mod frame_tests {
             let error = read_frame(&mut receiver, FrameLimit::new(u32::MAX - 1))
                 .await
                 .unwrap_err();
-            assert!(matches!(
-                error,
-                FrameError::Oversize {
-                    observed_length: FrameLength(u32::MAX),
-                    limit: FrameLimit(u32::MAX - 1)
-                }
-            ));
+            let FrameError::Oversize {
+                observed_length,
+                limit,
+            } = error
+            else {
+                panic!("expected the declared frame length to exceed its limit");
+            };
+            assert_eq!(observed_length, FrameLength(u32::MAX));
+            assert_eq!(limit, FrameLimit::new(u32::MAX - 1));
         });
     }
 
