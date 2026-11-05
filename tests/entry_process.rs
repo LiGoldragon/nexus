@@ -150,7 +150,7 @@ fn sigterm_stops_the_owned_process_and_removes_its_socket() {
     });
 
     let pid = rustix::process::Pid::from_child(child.child());
-    rustix::process::kill_process(pid, rustix::process::Signal::Term).unwrap();
+    rustix::process::kill_process(pid, rustix::process::Signal::TERM).unwrap();
     let mut status = None;
     wait_until(Instant::now() + Duration::from_secs(5), || {
         status = child.child().try_wait().unwrap();
