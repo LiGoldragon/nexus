@@ -5,7 +5,7 @@
 //! that Sema write boundary.
 
 /// The persisted standard Nexus configuration metadata.
-#[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Debug, PartialEq, Eq)]
+#[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Debug, PartialEq, Eq, Hash)]
 pub struct ConfigurationState<Configuration> {
     pub desired_configuration: Configuration,
     pub meta_configure_occurred: bool,
