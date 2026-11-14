@@ -34,7 +34,7 @@ use std::path::Path;
 /// The device and inode are the identity; the path is where it answered. Both
 /// are recorded because both are needed: a reader wants the address, and the
 /// guard wants the identity.
-#[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Debug, PartialEq, Eq)]
+#[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Debug, PartialEq, Eq, Hash)]
 pub struct StoreIdentity {
     pub path: String,
     pub device: u64,
@@ -135,7 +135,7 @@ pub trait Situating: Sized {
 
 /// Where a Nexus process was actually situated: written at bind, never read
 /// as configuration.
-#[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Debug, PartialEq, Eq)]
+#[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Debug, PartialEq, Eq, Hash)]
 pub struct Situation {
     pub store: StoreIdentity,
     pub bound_socket_vector: Vec<String>,

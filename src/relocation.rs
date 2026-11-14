@@ -36,7 +36,7 @@
 
 /// One store's declared move: the address it was bound at, and the address it
 /// has been carried to.
-#[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Debug, PartialEq, Eq)]
+#[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Debug, PartialEq, Eq, Hash)]
 pub struct Relocation {
     pub origin: String,
     pub destination: String,
