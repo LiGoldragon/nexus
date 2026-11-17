@@ -56,26 +56,34 @@ assertion that a stream's state bears it.
 
 - `publish(change)` takes the state out of its lock, folds the change in with
   `signal::Following::after` (no copy of the state per change), advances a position
-  the Publisher owns, and sends `(position, change)` on a broadcast channel of
-  the configured `Capacity`, all under the one lock. It waits for no
+  the Publisher owns, and keeps `(position, change)` among the last `Capacity`
+  changes, all under the one lock; then it announces the change on a watch
+  channel every open stream holds a receiver of. It waits for no
   subscriber and yields `Reached`, the number of open streams it was handed to.
-- `open()` subscribes and reads the state and its position under that same
-  lock, so the stream is handed exactly the changes after the state it opened
+- `open()` takes its receiver and reads the state and its position under that
+  same lock, so the stream is handed exactly the changes after the state it opened
   on. Its frames are `Opened(state)`, then `Changed(change)` for each later
   change, in order.
-- A subscriber more than `Capacity` changes behind is handed `Lagged(state)`,
-  the state as it then stands, and goes on. The changes still waiting for it
-  are drained under the lock the state is read under, since that state already
-  holds them, so it has the whole capacity again for the changes that follow.
-  After a state at position `p` the stream drops every change at or before
-  `p`: none twice, none missing. No
+- A stream wakes on an announcement and reads, under the lock, the kept change
+  after its position. A subscriber more than `Capacity` changes behind finds
+  that change no longer kept and is handed `Lagged(state)`, the state as it then
+  stands, and goes on from its position. After a state at position `p` the
+  stream is handed only changes after `p`: none twice, none missing. No
   subscriber is dropped for being slow, and none slows another or the Nexus.
-- When the Publisher is dropped each stream finishes; a subscription is one
+- `resize(capacity)`, on the mutable Publisher, sets the capacity and yields
+  `Reached`, the open streams it moved; a capacity below one is refused as
+  `create` refuses it, and the capacity stays. Every open stream follows it,
+  since all read the one set of kept changes: a stream whose backlog is within
+  the new capacity carries it over exactly, one further behind is handed
+  `Lagged` with the state as it stands when it next reads, and the position
+  rule keeps what follows exact.
+- When the Publisher is dropped each stream finishes after the changes still
+  kept for it; a subscription is one
   exchange, and the serving side ends it with the exchange's `Delivery::End`.
 
 The position is never a wire value; the frames are `signal::Frame`.
 
 `State` and `Change` are `Clone` (a state is sent to a subscriber at open and
 at lag, a change once per subscriber) and `Send + Sync + 'static`, as the
-channel and the boxed stream require; those bounds are on the Publisher's
+shared lock and the boxed stream require; those bounds are on the Publisher's
 implementations, not on the Ethos traits.

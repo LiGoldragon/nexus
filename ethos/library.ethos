@@ -12,5 +12,6 @@ Library
                []
                [ create:{ [ State Capacity ] [ Result<Self CapacityRefusal> ] }
                  publish.{ [ Change ] [ Reached ] }
+                 resize!{ [ Capacity ] [ Result<Reached CapacityRefusal> ] }
                  open.[ Stream<State Change> ] ] } ]
 []

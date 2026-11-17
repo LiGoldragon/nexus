@@ -1,5 +1,21 @@
 # Upgrades
 
+## 0.9.0 — Publishing sets the capacity
+
+`Publishing` gains `resize!{ [ Capacity ] [ Result<Reached CapacityRefusal> ] }`,
+generated as `fn resize(&mut self, input: Capacity) -> Result<Reached,
+CapacityRefusal>`. It sets the capacity of a Publisher with open streams and
+yields `Reached`, the streams it moved; a capacity below one is refused as
+`create` refuses it, and the capacity stays. Every open stream follows the new
+capacity: one whose backlog fits is carried over exactly, one further behind is
+handed `Lagged` with the state as it stands and goes on, exact after it.
+
+The Publisher now keeps the last `Capacity` changes itself, under the lock its
+state is held under, and wakes its streams on a `tokio::sync::watch`
+announcement, in place of a broadcast channel. The frames a stream yields are
+unchanged. To deploy: repin `nexus`; an implementor of `Publishing` other than
+`Publisher` adds `resize`.
+
 ## 0.8.0 — Following moves to signal
 
 `nexus::Following` is removed; the same trait is `signal::Following`, declared

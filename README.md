@@ -33,7 +33,8 @@ streams that follow it. `publish` folds a change into the state with
 it `Reached`; `open` yields a `signal::Stream` that opens on the state as it
 stands, carries each later change in order, hands a subscriber that fell more
 than the `Capacity` behind the state anew as `Lagged`, and finishes when the
-Publisher is dropped. No subscriber slows the Nexus or another subscriber.
+Publisher is dropped. `resize` sets the `Capacity` on the mutable Publisher and
+every open stream follows it, answering with how many it `Reached`. No subscriber slows the Nexus or another subscriber.
 
 The vocabulary the Publisher speaks, `Capacity`, `Reached`, `Subscribable`
 and `Publishing`, is declared in `ethos/library.ethos` and

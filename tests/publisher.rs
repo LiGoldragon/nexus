@@ -1,7 +1,7 @@
 //! The subscription publisher: a stream opens on the state as it stands and
 //! follows each change after it, a subscriber that falls behind is handed the
-//! state anew and then only what follows it, and no subscriber holds the
-//! publisher up.
+//! state anew and then only what follows it, no subscriber holds the
+//! publisher up, and a resize carries every open stream to the new capacity.
 
 use futures_util::StreamExt;
 use nexus::{Capacity, CapacityRefusal, Publisher, Publishing, Reached, Subscribable};
@@ -149,4 +149,103 @@ fn a_capacity_below_one_is_refused() {
         Publisher::<Ledger, u32>::create(Ledger(Vec::new()), Capacity(-1)),
         Err(CapacityRefusal::Negative)
     ));
+}
+
+#[tokio::test]
+async fn a_grown_capacity_carries_every_open_stream_exactly() {
+    let mut publisher = Publisher::<Ledger, u32>::create(Ledger(Vec::new()), Capacity(2))
+        .expect("a capacity of at least one");
+    let mut first = publisher.open();
+    let mut second = publisher.open();
+    publisher.publish(1);
+    publisher.publish(2);
+    assert_eq!(publisher.resize(Capacity(8)), Ok(Reached(2)));
+    for change in 3..=8 {
+        assert_eq!(publisher.publish(change), Reached(2));
+    }
+    for stream in [&mut first, &mut second] {
+        assert_eq!(stream.next().await, Some(Frame::Opened(Ledger(Vec::new()))));
+        for change in 1..=8 {
+            assert_eq!(stream.next().await, Some(Frame::Changed(change)));
+        }
+    }
+}
+
+#[tokio::test]
+async fn a_shrunk_capacity_within_each_backlog_carries_every_open_stream_exactly() {
+    let mut publisher = Publisher::<Ledger, u32>::create(Ledger(Vec::new()), Capacity(8))
+        .expect("a capacity of at least one");
+    let mut first = publisher.open();
+    let mut second = publisher.open();
+    publisher.publish(1);
+    publisher.publish(2);
+    assert_eq!(publisher.resize(Capacity(2)), Ok(Reached(2)));
+    for stream in [&mut first, &mut second] {
+        assert_eq!(stream.next().await, Some(Frame::Opened(Ledger(Vec::new()))));
+        for change in [1, 2] {
+            assert_eq!(stream.next().await, Some(Frame::Changed(change)));
+        }
+    }
+    publisher.publish(3);
+    publisher.publish(4);
+    for stream in [&mut first, &mut second] {
+        for change in [3, 4] {
+            assert_eq!(stream.next().await, Some(Frame::Changed(change)));
+        }
+    }
+}
+
+#[tokio::test]
+async fn a_shrink_below_a_backlog_hands_that_stream_the_state_then_only_what_follows_it() {
+    let mut publisher = Publisher::<Ledger, u32>::create(Ledger(Vec::new()), Capacity(8))
+        .expect("a capacity of at least one");
+    let mut behind = publisher.open();
+    let mut prompt = publisher.open();
+    assert_eq!(prompt.next().await, Some(Frame::Opened(Ledger(Vec::new()))));
+    for change in 1..=5 {
+        publisher.publish(change);
+        assert_eq!(prompt.next().await, Some(Frame::Changed(change)));
+    }
+    assert_eq!(publisher.resize(Capacity(2)), Ok(Reached(2)));
+    publisher.publish(6);
+    assert_eq!(prompt.next().await, Some(Frame::Changed(6)));
+    let mut frames = Vec::new();
+    for _ in 0..2 {
+        frames.push(behind.next().await.expect("a frame"));
+    }
+    assert_eq!(frames[0], Frame::Opened(Ledger(Vec::new())));
+    assert_eq!(frames[1], Frame::Lagged(Ledger(vec![1, 2, 3, 4, 5, 6])));
+    publisher.publish(7);
+    publisher.publish(8);
+    for _ in 0..2 {
+        frames.push(behind.next().await.expect("a frame"));
+    }
+    assert_eq!(frames[2..], [Frame::Changed(7), Frame::Changed(8)]);
+    assert_eq!(fold(&frames), publisher.state());
+    for change in [7, 8] {
+        assert_eq!(prompt.next().await, Some(Frame::Changed(change)));
+    }
+    drop(publisher);
+    assert_eq!(behind.next().await, None);
+    assert_eq!(prompt.next().await, None);
+}
+
+#[tokio::test]
+async fn a_resize_below_one_is_refused_and_the_capacity_stays() {
+    let mut publisher = Publisher::<Ledger, u32>::create(Ledger(Vec::new()), Capacity(2))
+        .expect("a capacity of at least one");
+    let mut stream = publisher.open();
+    assert_eq!(publisher.resize(Capacity(0)), Err(CapacityRefusal::Zero));
+    assert_eq!(
+        publisher.resize(Capacity(-1)),
+        Err(CapacityRefusal::Negative)
+    );
+    for change in 1..=3 {
+        publisher.publish(change);
+    }
+    assert_eq!(stream.next().await, Some(Frame::Opened(Ledger(Vec::new()))));
+    assert_eq!(
+        stream.next().await,
+        Some(Frame::Lagged(Ledger(vec![1, 2, 3])))
+    );
 }

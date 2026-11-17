@@ -36,5 +36,9 @@ pub trait Publishing {
     where
         Self: Sized;
     fn publish(&self, input: Self::Change) -> Reached;
+    fn resize(
+        &mut self,
+        input: Capacity,
+    ) -> std::result::Result<Reached, CapacityRefusal>;
     fn open(&self) -> signal::Stream<Self::State, Self::Change>;
 }
