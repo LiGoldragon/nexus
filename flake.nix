@@ -30,7 +30,7 @@
               relativePath = pkgs.lib.removePrefix "${toString ./.}/" (toString path);
             in
             !(relativePath == "target" || pkgs.lib.hasPrefix "target/" relativePath)
-            && craneLib.filterCargoSources path type;
+            && (craneLib.filterCargoSources path type || pkgs.lib.hasSuffix ".ethos" relativePath);
         };
         commonArguments = { src = source; strictDeps = true; };
         cargoArtifacts = craneLib.buildDepsOnly commonArguments;

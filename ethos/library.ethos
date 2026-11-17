@@ -1,0 +1,18 @@
+Library
+[]
+[ Capacity.Integer
+  Reached.Integer ]
+[ Subscribable.{ []
+                 [ State Change ]
+                 []
+                 [ state.[ State ] ] }
+  Following.{ []
+              [ Change ]
+              []
+              [ after:{ [ Self Change ] [ Self ] } ] }
+  Publishing.{ []
+               [ State Change ]
+               []
+               [ publish.{ [ Change ] [ Reached ] }
+                 open.[ Stream<State Change> ] ] } ]
+[]
