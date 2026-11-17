@@ -32,7 +32,7 @@ use futures_util::stream::{self, StreamExt};
 use signal::Frame;
 use tokio::sync::broadcast::{self, error::RecvError};
 
-use crate::generated::{Capacity, Following, Publishing, Reached, Subscribable};
+use crate::generated::{Capacity, CapacityRefusal, Following, Publishing, Reached, Subscribable};
 
 /// The one current published state of a subscription, and the channel its
 /// changes are handed to the open streams on.
@@ -43,28 +43,6 @@ pub struct Publisher<State, Change> {
     published: Arc<Mutex<Option<(u64, State)>>>,
     /// Each change with its position, to every open stream.
     changes: broadcast::Sender<(u64, Change)>,
-}
-
-impl<State, Change> Publisher<State, Change>
-where
-    State: Following<Change = Change> + Clone + Send + Sync + 'static,
-    Change: Clone + Send + Sync + 'static,
-{
-    /// A publisher of `state`, whose streams may fall `capacity` changes
-    /// behind before they are handed the state anew.
-    ///
-    /// # Panics
-    ///
-    /// When `capacity` is below one: a stream that can hold no change can
-    /// follow none.
-    pub fn new(state: State, capacity: Capacity) -> Self {
-        let capacity = usize::try_from(capacity.0).expect("a publisher's capacity is at least one");
-        let (changes, _) = broadcast::channel(capacity);
-        Self {
-            published: Arc::new(Mutex::new(Some((0, state)))),
-            changes,
-        }
-    }
 }
 
 /// The published state and its position, locked against publishing until the
@@ -107,6 +85,22 @@ where
 {
     type State = State;
     type Change = Change;
+
+    /// A publisher of `state`, whose streams may fall `capacity` changes
+    /// behind before they are handed the state anew. A capacity below one is
+    /// refused: a stream that can hold no change can follow none.
+    fn create(state: State, capacity: Capacity) -> Result<Self, CapacityRefusal> {
+        let capacity = match usize::try_from(capacity.0) {
+            Ok(0) => return Err(CapacityRefusal::Zero),
+            Ok(capacity) => capacity,
+            Err(_) => return Err(CapacityRefusal::Negative),
+        };
+        let (changes, _) = broadcast::channel(capacity);
+        Ok(Self {
+            published: Arc::new(Mutex::new(Some((0, state)))),
+            changes,
+        })
+    }
 
     /// Folds the change into the state, then hands it to every open stream,
     /// all under the one lock a stream opens under, so a stream is handed

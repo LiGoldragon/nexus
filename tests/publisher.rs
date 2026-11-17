@@ -4,7 +4,7 @@
 //! publisher up.
 
 use futures_util::StreamExt;
-use nexus::{Capacity, Following, Publisher, Publishing, Reached, Subscribable};
+use nexus::{Capacity, CapacityRefusal, Following, Publisher, Publishing, Reached, Subscribable};
 use signal::Frame;
 
 /// A state that remembers every change folded into it, so a change received
@@ -34,14 +34,16 @@ fn fold(frames: &[Frame<Ledger, u32>]) -> Ledger {
 
 #[tokio::test]
 async fn a_stream_opens_on_the_initial_state() {
-    let publisher = Publisher::new(Ledger(vec![7]), Capacity(8));
+    let publisher = Publisher::<Ledger, u32>::create(Ledger(vec![7]), Capacity(8))
+        .expect("a capacity of at least one");
     let mut stream = publisher.open();
     assert_eq!(stream.next().await, Some(Frame::Opened(Ledger(vec![7]))));
 }
 
 #[tokio::test]
 async fn changes_after_open_arrive_in_order() {
-    let publisher = Publisher::new(Ledger(Vec::new()), Capacity(8));
+    let publisher = Publisher::<Ledger, u32>::create(Ledger(Vec::new()), Capacity(8))
+        .expect("a capacity of at least one");
     let mut stream = publisher.open();
     for change in [1, 2, 3] {
         publisher.publish(change);
@@ -55,7 +57,8 @@ async fn changes_after_open_arrive_in_order() {
 
 #[tokio::test]
 async fn a_stream_opened_later_opens_on_the_folded_state() {
-    let publisher = Publisher::new(Ledger(Vec::new()), Capacity(8));
+    let publisher = Publisher::<Ledger, u32>::create(Ledger(Vec::new()), Capacity(8))
+        .expect("a capacity of at least one");
     publisher.publish(1);
     publisher.publish(2);
     let mut stream = publisher.open();
@@ -66,7 +69,8 @@ async fn a_stream_opened_later_opens_on_the_folded_state() {
 
 #[test]
 fn publish_reaches_each_open_stream() {
-    let publisher = Publisher::new(Ledger(Vec::new()), Capacity(8));
+    let publisher = Publisher::<Ledger, u32>::create(Ledger(Vec::new()), Capacity(8))
+        .expect("a capacity of at least one");
     assert_eq!(publisher.publish(1), Reached(0));
     let first = publisher.open();
     let second = publisher.open();
@@ -79,7 +83,8 @@ fn publish_reaches_each_open_stream() {
 
 #[tokio::test]
 async fn a_lagging_subscriber_is_handed_the_state_then_only_what_follows_it() {
-    let publisher = Publisher::new(Ledger(Vec::new()), Capacity(2));
+    let publisher = Publisher::<Ledger, u32>::create(Ledger(Vec::new()), Capacity(2))
+        .expect("a capacity of at least one");
     let mut stream = publisher.open();
     for change in 1..=5 {
         publisher.publish(change);
@@ -103,7 +108,8 @@ async fn a_lagging_subscriber_is_handed_the_state_then_only_what_follows_it() {
 
 #[tokio::test]
 async fn dropping_the_publisher_ends_each_stream() {
-    let publisher = Publisher::new(Ledger(Vec::new()), Capacity(8));
+    let publisher = Publisher::<Ledger, u32>::create(Ledger(Vec::new()), Capacity(8))
+        .expect("a capacity of at least one");
     let mut first = publisher.open();
     let mut second = publisher.open();
     drop(publisher);
@@ -115,7 +121,8 @@ async fn dropping_the_publisher_ends_each_stream() {
 
 #[tokio::test]
 async fn a_slow_subscriber_holds_up_neither_the_publisher_nor_another_subscriber() {
-    let publisher = Publisher::new(Ledger(Vec::new()), Capacity(2));
+    let publisher = Publisher::<Ledger, u32>::create(Ledger(Vec::new()), Capacity(2))
+        .expect("a capacity of at least one");
     let mut slow = publisher.open();
     let mut prompt = publisher.open();
     assert_eq!(prompt.next().await, Some(Frame::Opened(Ledger(Vec::new()))));
@@ -130,4 +137,16 @@ async fn a_slow_subscriber_holds_up_neither_the_publisher_nor_another_subscriber
     drop(publisher);
     assert_eq!(slow.next().await, None);
     assert_eq!(prompt.next().await, None);
+}
+
+#[test]
+fn a_capacity_below_one_is_refused() {
+    assert!(matches!(
+        Publisher::<Ledger, u32>::create(Ledger(Vec::new()), Capacity(0)),
+        Err(CapacityRefusal::Zero)
+    ));
+    assert!(matches!(
+        Publisher::<Ledger, u32>::create(Ledger(Vec::new()), Capacity(-1)),
+        Err(CapacityRefusal::Negative)
+    ));
 }

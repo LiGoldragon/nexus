@@ -1,5 +1,13 @@
 # Upgrades
 
+## 0.7.0 — a capacity below one is refused, not a panic
+
+`Publisher::new` is gone. A Publisher is made by `Publishing::create(state,
+Capacity)`, which answers `Result<Publisher, CapacityRefusal>`:
+`CapacityRefusal.[ Zero Negative ]` is declared in `ethos/library.ethos`. To
+deploy: replace `Publisher::new(state, capacity)` with
+`Publisher::<State, Change>::create(state, capacity)` and handle the refusal.
+
 ## 0.6.0 — the subscription Publisher; nexus takes Ethos
 
 Added: `Publisher<State, Change>`, the one current published state of a

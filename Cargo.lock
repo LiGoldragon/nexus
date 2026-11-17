@@ -215,7 +215,7 @@ dependencies = [
 
 [[package]]
 name = "nexus"
-version = "0.6.0"
+version = "0.7.0"
 dependencies = [
  "datom-codec",
  "ethos-zero 30.0.0",

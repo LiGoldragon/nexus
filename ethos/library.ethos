@@ -1,7 +1,8 @@
 Library
 []
 [ Capacity.Integer
-  Reached.Integer ]
+  Reached.Integer
+  CapacityRefusal.[ Zero Negative ] ]
 [ Subscribable.{ []
                  [ State Change ]
                  []
@@ -13,6 +14,7 @@ Library
   Publishing.{ []
                [ State Change ]
                []
-               [ publish.{ [ Change ] [ Reached ] }
+               [ create:{ [ State Capacity ] [ Result<Self CapacityRefusal> ] }
+                 publish.{ [ Change ] [ Reached ] }
                  open.[ Stream<State Change> ] ] } ]
 []
