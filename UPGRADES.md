@@ -15,8 +15,8 @@ nexus now has a build script, which asserts the committed
 `ethos/library.ethos`, and a `datom` feature (datom-codec 09a0526, protos
 c93b598) under which the generated kinds derive the Datom codec's traits.
 
-New dependencies: `signal` 11.1.0 at daf9a39, for `signal::Frame`,
-`signal::Stream` and the subscription `Ending`; `tokio` 1.53.1 (`sync`);
+New dependencies: `signal` 11.1.0 at b145ddb, for `signal::Frame` and
+`signal::Stream`; `tokio` 1.53.1 (`sync`);
 `futures-util` 0.3.34. The minimum Rust is 1.89, as signal and ethos-zero
 require.
 

@@ -67,12 +67,10 @@ bears and the `Capacity` and `Reached` it speaks in are declared in
   After a state at position `p` the stream drops every change at or before
   `p`: none twice, none missing. No
   subscriber is dropped for being slow, and none slows another or the Nexus.
-- When the Publisher is dropped each stream yields `Ended(Closed)` and
-  finishes.
+- When the Publisher is dropped each stream finishes; a subscription is one
+  exchange, and the serving side ends it with the exchange's `Delivery::End`.
 
-The position is never a wire value; the frames are `signal::Frame`, and the
-ending is the signal library's subscription `Ending`, named in one `use` line
-of `src/publisher.rs`.
+The position is never a wire value; the frames are `signal::Frame`.
 
 `State` and `Change` are `Clone` (a state is sent to a subscriber at open and
 at lag, a change once per subscriber) and `Send + Sync + 'static`, as the

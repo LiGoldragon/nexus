@@ -32,8 +32,8 @@ streams that follow it. `publish` folds a change into the state with
 `Following::after` and hands it to every open stream, answering with how many
 it `Reached`; `open` yields a `signal::Stream` that opens on the state as it
 stands, carries each later change in order, hands a subscriber that fell more
-than the `Capacity` behind the state anew as `Lagged`, and ends `Closed` when
-the Publisher is dropped. No subscriber slows the Nexus or another subscriber.
+than the `Capacity` behind the state anew as `Lagged`, and finishes when the
+Publisher is dropped. No subscriber slows the Nexus or another subscriber.
 
 The vocabulary the Publisher speaks, `Capacity`, `Reached`, `Subscribable`,
 `Following` and `Publishing`, is declared in `ethos/library.ethos` and

@@ -372,7 +372,7 @@ checksum = "cf54715a573b99ac80df0bc206da022bcd442c974952c7b9720069370852e21f"
 [[package]]
 name = "signal"
 version = "11.1.0"
-source = "git+https://github.com/LiGoldragon/signal?rev=daf9a39#daf9a396ba129b64956e66052559b28a53d61a82"
+source = "git+https://github.com/LiGoldragon/signal?rev=b145ddb#b145ddb40c73d2545697fd9c8e049e562978a3ac"
 dependencies = [
  "ethos-zero 22.0.0",
  "futures-core",

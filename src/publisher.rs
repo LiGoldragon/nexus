@@ -17,7 +17,8 @@
 //! each change it has not yet seen once. The changes still waiting for a
 //! lagging subscriber are all folded into the state it is handed, so they are
 //! drained with it, and the subscriber has the whole capacity again for what
-//! follows.
+//! follows. When the Publisher is dropped each stream finishes; a
+//! subscription is one exchange, and its end is the exchange's.
 //!
 //! The Publisher's fields are its own and it is generic over its state and
 //! change, so it is written here by hand; every trait it bears, and the
@@ -29,7 +30,6 @@ use std::sync::{Arc, Mutex, MutexGuard};
 
 use futures_util::stream::{self, StreamExt};
 use signal::Frame;
-use signal::generated::Ending;
 use tokio::sync::broadcast::{self, error::RecvError};
 
 use crate::generated::{Capacity, Following, Publishing, Reached, Subscribable};
@@ -157,9 +157,9 @@ where
                                 Some((receiver, position, published)),
                             ));
                         }
-                        Err(RecvError::Closed) => {
-                            return Some((Frame::Ended(Ending::Closed), None));
-                        }
+                        // The Publisher is gone: the stream finishes, and the
+                        // serving side ends the exchange, Completed.
+                        Err(RecvError::Closed) => return None,
                     }
                 }
             },

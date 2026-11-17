@@ -6,7 +6,6 @@
 use futures_util::StreamExt;
 use nexus::{Capacity, Following, Publisher, Publishing, Reached, Subscribable};
 use signal::Frame;
-use signal::generated::Ending;
 
 /// A state that remembers every change folded into it, so a change received
 /// twice or missed shows in the comparison.
@@ -30,7 +29,6 @@ fn fold(frames: &[Frame<Ledger, u32>]) -> Ledger {
         .fold(Ledger(Vec::new()), |state, frame| match frame {
             Frame::Opened(standing) | Frame::Lagged(standing) => standing.clone(),
             Frame::Changed(change) => Ledger::after(state, *change),
-            Frame::Ended(_) => state,
         })
 }
 
@@ -100,7 +98,6 @@ async fn a_lagging_subscriber_is_handed_the_state_then_only_what_follows_it() {
     assert_eq!(frames[2..], [Frame::Changed(6), Frame::Changed(7)]);
     assert_eq!(fold(&frames), publisher.state());
     drop(publisher);
-    assert_eq!(stream.next().await, Some(Frame::Ended(Ending::Closed)));
     assert_eq!(stream.next().await, None);
 }
 
@@ -112,7 +109,6 @@ async fn dropping_the_publisher_ends_each_stream() {
     drop(publisher);
     for stream in [&mut first, &mut second] {
         assert_eq!(stream.next().await, Some(Frame::Opened(Ledger(Vec::new()))));
-        assert_eq!(stream.next().await, Some(Frame::Ended(Ending::Closed)));
         assert_eq!(stream.next().await, None);
     }
 }
@@ -132,6 +128,6 @@ async fn a_slow_subscriber_holds_up_neither_the_publisher_nor_another_subscriber
     assert_eq!(slow.next().await, Some(Frame::Opened(Ledger(Vec::new()))));
     assert_eq!(slow.next().await, Some(Frame::Lagged(standing)));
     drop(publisher);
-    assert_eq!(slow.next().await, Some(Frame::Ended(Ending::Closed)));
-    assert_eq!(prompt.next().await, Some(Frame::Ended(Ending::Closed)));
+    assert_eq!(slow.next().await, None);
+    assert_eq!(prompt.next().await, None);
 }
