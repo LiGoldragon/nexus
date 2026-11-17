@@ -4,8 +4,8 @@
 //! publisher up.
 
 use futures_util::StreamExt;
-use nexus::{Capacity, CapacityRefusal, Following, Publisher, Publishing, Reached, Subscribable};
-use signal::Frame;
+use nexus::{Capacity, CapacityRefusal, Publisher, Publishing, Reached, Subscribable};
+use signal::{Following, Frame};
 
 /// A state that remembers every change folded into it, so a change received
 /// twice or missed shows in the comparison.

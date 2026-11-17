@@ -7,10 +7,6 @@ Library
                  [ State Change ]
                  []
                  [ state.[ State ] ] }
-  Following.{ []
-              [ Change ]
-              []
-              [ after:{ [ Self Change ] [ Self ] } ] }
   Publishing.{ []
                [ State Change ]
                []

@@ -1,5 +1,13 @@
 # Upgrades
 
+## 0.8.0 — Following moves to signal
+
+`nexus::Following` is removed; the same trait is `signal::Following`, declared
+in signal 11.2.0 (4f5cbb9), which nexus now pins. The Publisher bears the same
+bounds, `State: Following<Change = Change>`, with signal's trait. To deploy:
+repin `signal` to 4f5cbb9 with `nexus` and import `Following` from `signal` in
+place of `nexus`. Behaviour is unchanged.
+
 ## 0.7.0 — a capacity below one is refused, not a panic
 
 `Publisher::new` is gone. A Publisher is made by `Publishing::create(state,

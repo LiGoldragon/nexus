@@ -49,10 +49,13 @@ published state; the owning actor reads it through `Subscribable::state` and
 keeps no second copy. It is generic over the state and change and its fields
 are its own, so it is the one hand-written type of this concern; every trait it
 bears and the `Capacity` and `Reached` it speaks in are declared in
-`ethos/library.ethos` and generated.
+`ethos/library.ethos` and generated. Its state bears `signal::Following`,
+declared in signal beside `Frame` and `Stream`, since the subscriber folds each
+`Changed` into its copy by the same fold; the bound `State: Following` is the
+assertion that a stream's state bears it.
 
 - `publish(change)` takes the state out of its lock, folds the change in with
-  `Following::after` (no copy of the state per change), advances a position
+  `signal::Following::after` (no copy of the state per change), advances a position
   the Publisher owns, and sends `(position, change)` on a broadcast channel of
   the configured `Capacity`, all under the one lock. It waits for no
   subscriber and yields `Reached`, the number of open streams it was handed to.

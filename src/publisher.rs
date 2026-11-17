@@ -3,7 +3,8 @@
 //!
 //! A Nexus that answers a subscription holds its state in a [`Publisher`] and
 //! reads it from there; it keeps no second copy. Each change it makes is
-//! published: folded into the state with [`Following::after`], given the next
+//! published: folded into the state with [`Following::after`], the fold
+//! [`signal`] declares for every subscription state, given the next
 //! position, and handed to every open stream. A stream opens on the state as
 //! it stands, then carries each change published after it, in order.
 //!
@@ -23,16 +24,17 @@
 //! The Publisher's fields are its own and it is generic over its state and
 //! change, so it is written here by hand; every trait it bears, and the
 //! [`Capacity`] and [`Reached`] it speaks in, are declared in
-//! `ethos/library.ethos`.
+//! `ethos/library.ethos`. The bound `State: Following` asserts that the state
+//! a [`signal::Stream`] carries bears signal's [`Following`].
 
 use std::pin::Pin;
 use std::sync::{Arc, Mutex, MutexGuard};
 
 use futures_util::stream::{self, StreamExt};
-use signal::Frame;
+use signal::{Following, Frame};
 use tokio::sync::broadcast::{self, error::RecvError};
 
-use crate::generated::{Capacity, CapacityRefusal, Following, Publishing, Reached, Subscribable};
+use crate::generated::{Capacity, CapacityRefusal, Publishing, Reached, Subscribable};
 
 /// The one current published state of a subscription, and the channel its
 /// changes are handed to the open streams on.

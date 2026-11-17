@@ -1,6 +1,6 @@
 [package]
 name = "nexus"
-version = "0.7.0"
+version = "0.8.0"
 edition = "2024"
 rust-version = "1.89"
 license = "MIT OR Apache-2.0"
@@ -18,7 +18,7 @@ datom-codec = { git = "https://github.com/LiGoldragon/datom-codec", rev = "09a05
 futures-util = { version = "0.3.34", default-features = false }
 protos = { git = "https://github.com/LiGoldragon/protos", rev = "c93b598", optional = true }
 rkyv = { version = "0.8", default-features = false, features = ["std", "bytecheck", "little_endian", "pointer_width_32", "unaligned"] }
-signal = { git = "https://github.com/LiGoldragon/signal", rev = "b145ddb" }
+signal = { git = "https://github.com/LiGoldragon/signal", rev = "4f5cbb9" }
 thiserror = "2"
 tokio = { version = "1.53.1", default-features = false, features = ["sync"] }
 

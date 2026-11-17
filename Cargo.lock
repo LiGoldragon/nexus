@@ -215,7 +215,7 @@ dependencies = [
 
 [[package]]
 name = "nexus"
-version = "0.7.0"
+version = "0.8.0"
 dependencies = [
  "datom-codec",
  "ethos-zero 30.0.0",
@@ -371,8 +371,8 @@ checksum = "cf54715a573b99ac80df0bc206da022bcd442c974952c7b9720069370852e21f"
 
 [[package]]
 name = "signal"
-version = "11.1.0"
-source = "git+https://github.com/LiGoldragon/signal?rev=b145ddb#b145ddb40c73d2545697fd9c8e049e562978a3ac"
+version = "11.2.0"
+source = "git+https://github.com/LiGoldragon/signal?rev=4f5cbb9#4f5cbb9322ecae7a8821439179e778d495d7804a"
 dependencies = [
  "ethos-zero 22.0.0",
  "futures-core",

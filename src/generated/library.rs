@@ -26,13 +26,6 @@ pub trait Subscribable {
     fn state(&self) -> Self::State;
 }
 #[rustfmt::skip]
-pub trait Following {
-    type Change;
-    fn after(input_0: Self, input_1: Self::Change) -> Self
-    where
-        Self: Sized;
-}
-#[rustfmt::skip]
 pub trait Publishing {
     type State;
     type Change;
