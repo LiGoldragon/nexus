@@ -98,7 +98,11 @@ consumer is a crate of its own:
 - `nexus-exchange` is what both sides of a socket share: the socket names a
   Nexus's `ComponentName` gives, the bootstrap `Admission` a pair launcher
   hands both processes and its checked `ValidAdmission`, the blocking half of
-  `signal`'s exchange layer, and the translator's lane frames. Its `datom`
+  `signal`'s exchange layer, the translator's lane frames, and `LaneFailure`,
+  the failure of an emission's lane, which every emission outcome carries as
+  one variant of its own through `LaneFailing`, apart from its domain
+  refusals: `Unsubmitted`, the effect not done; `Declined`, refused by the
+  translator before acting; `Unanswered`, sent and no answer read. Its `datom`
   feature is the one per-consumer feature: the translator's text side may
   build it, the Nexus process never does.
 - `nexus-querying` is the querying end of a connection, `QueryingConnection`,
@@ -113,7 +117,11 @@ consumer is a crate of its own:
   the blocking pool, answered once or with each frame of a `signal::Stream`
   as one `Delivery::Answer` on its exchange until `Delivery::End`. The
   emission lane sends one external effect to the translator as a Signal value
-  and reads its outcome back.
+  and reads its outcome back, a failed lane as the outcome's `LaneFailure`.
+  `NexusBootstrap` is the one frame a Nexus starts with, written by the pair
+  launcher: its `Place`, its `Admission`, its paired translator's
+  `PeerIdentity` and the `InstanceId` of this run; `BootstrapReading` reads
+  it.
 
 A Nexus implements `MetaAnswering`, `PublicServing`, `TransportBounded`,
 `PeerAdmitting` and `Named` with its own bodies. Whatever Ethos can declare

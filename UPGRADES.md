@@ -1,5 +1,37 @@
 # Upgrades
 
+## nexus-exchange, nexus-querying and nexus-serving 0.2.0 — the lane failure is typed, the Nexus bootstrap is shared
+
+`nexus-exchange` declares, in `crates/exchange/ethos/exchange.ethos`,
+`LaneFault` (a `String`), `LaneFailure.[ Unsubmitted Declined Unanswered ]`,
+each carrying a `LaneFault`, and the trait `LaneFailing` (`fn
+lane_failed(lane_failure: LaneFailure) -> Self`). A failed emission lane is
+one variant every emission outcome carries, apart from its domain refusals:
+`Unsubmitted`, the request was not written whole and the effect did not
+happen; `Declined`, the translator answered the emission with a failure frame
+before acting; `Unanswered`, the request was sent and no answer was read, so
+the effect may have happened.
+
+`nexus-serving` drops `EmissionFailure`. `Emitting::emit::<Emission,
+Outcome>` returns `Outcome`, which bears `LaneFailing`, in place of
+`Result<Outcome, EmissionFailure>`: every lane fault is
+`Outcome::lane_failed`. It declares, in `crates/serving/ethos/serving.ethos`,
+`InstanceId` (a `String`) and `NexusBootstrap.{ Place Admission PeerIdentity
+InstanceId }`, the one frame a Nexus starts with, which the pair launcher in
+`translator-serving` writes; `BootstrapReading::read_bootstrap` reads it from
+any reader within Signal's largest frame. Its archive is the bytes of a
+Nexus's own bootstrap of those four fields, so a Nexus that declared its own
+reads the shared one unchanged. `nexus-serving` re-exports `LaneFailing`,
+`LaneFailure` and `LaneFault`. `nexus-querying` changes no code; it moves with
+`nexus-exchange`. `nexus` stays 0.9.0 at `d020a62`.
+
+To adopt: repin the three crates to this repository's revision, together,
+and take the build base that registers them. Give each emission outcome a
+`LaneFailed.LaneFailure` variant (importing `nexus_exchange:[ LaneFailure ]`
+in its Ethos) and `impl LaneFailing` returning it; match it where the
+`Result` was matched. Read the Nexus's bootstrap as `NexusBootstrap` in place
+of its own.
+
 ## nexus-exchange, nexus-querying and nexus-serving 0.1.1 — the socket paths are the exchange's
 
 `SocketPaths<Component>` (`From<&Place>` for a `Named` component: `public`,

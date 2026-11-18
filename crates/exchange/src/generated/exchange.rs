@@ -74,6 +74,18 @@ pub struct Admission {
     pub retry_delay_milliseconds: RetryDelayMilliseconds,
 }
 #[rustfmt::skip]
+#[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
+#[cfg_attr(feature = "datom", derive(datom_codec::Datomizable, datom_codec::Composing))]
+pub struct LaneFault(pub String);
+#[rustfmt::skip]
+#[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Debug, PartialEq, Eq, Hash)]
+#[cfg_attr(feature = "datom", derive(datom_codec::Datomizable, datom_codec::Composing))]
+pub enum LaneFailure {
+    Unsubmitted(LaneFault),
+    Declined(LaneFault),
+    Unanswered(LaneFault),
+}
+#[rustfmt::skip]
 pub trait Named {
     fn name() -> ComponentName;
     fn title() -> ComponentTitle;
@@ -81,6 +93,12 @@ pub trait Named {
 #[rustfmt::skip]
 pub trait SocketNaming {
     fn socket_names(&self) -> SocketNames;
+}
+#[rustfmt::skip]
+pub trait LaneFailing {
+    fn lane_failed(input: LaneFailure) -> Self
+    where
+        Self: Sized;
 }
 #[rustfmt::skip]
 const _: () = {

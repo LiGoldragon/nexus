@@ -13,8 +13,13 @@ Library
   FrameDeadlineMilliseconds.Integer
   FrameCapacityBytes.Integer
   RetryDelayMilliseconds.Integer
-  Admission.{ FrameDeadlineMilliseconds FrameCapacityBytes RetryDelayMilliseconds } ]
+  Admission.{ FrameDeadlineMilliseconds FrameCapacityBytes RetryDelayMilliseconds }
+  LaneFault.String
+  LaneFailure.[ Unsubmitted.LaneFault                  ; not sent whole: it did not happen
+                Declined.LaneFault                     ; refused by the translator unread or undone
+                Unanswered.LaneFault ] ]               ; sent, no answer read: it may have happened
 [ Named.[ name:[ ComponentName ]                       ; traits
           title:[ ComponentTitle ] ]
-  SocketNaming.[ socket_names.[ SocketNames ] ] ]
+  SocketNaming.[ socket_names.[ SocketNames ] ]
+  LaneFailing.[ lane_failed:{ [ LaneFailure ] [ Self ] } ] ]  ; an emission outcome, failed on its lane
 [ ComponentName.[ SocketNaming ] ]                     ; associations

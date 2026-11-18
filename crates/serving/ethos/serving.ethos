@@ -1,8 +1,10 @@
 Library
-[]                                                     ; imports
+[ shared_translator:[ Place PeerIdentity ]             ; imports
+  nexus_exchange:[ Admission ] ]
 [ Closing.[ Finished Withdrawn Abandoned ]             ; types
   Continuation.[ Going Ended ]
-  EmissionFailure.[ Unsubmitted.String Unanswered.String ] ]
+  InstanceId.String                                    ; one run of the Nexus
+  NexusBootstrap.{ Place Admission PeerIdentity InstanceId } ]  ; the frame a Nexus starts with
 [ MetaAnswering.{ []                                   ; traits
                   [ Query Response ]
                   []
