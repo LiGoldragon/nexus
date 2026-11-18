@@ -1,12 +1,12 @@
 //! A Nexus that writes only its bodies is served whole: its meta socket
 //! answers each exchange once, and its public socket answers once or with
-//! every frame of a stream, then ends the exchange.
+//! every frame of a stream; every exchange then ends.
 
 use std::sync::Arc;
 use std::time::Duration;
 
-use nexus_exchange::{ComponentName, ComponentTitle, Named};
-use nexus_querying::{Patience, Querying, QueryingConnection};
+use nexus_exchange::{ComponentName, ComponentTitle, ExchangeError, Named};
+use nexus_querying::{ExchangeFollowing, Patience, Querying, QueryingConnection};
 use nexus_serving::{
     ConnectionServing, MetaAnswering, MetaServing, PublicConnection, PublicServing, Reply,
     SubscriptionClosing, TransportBounded,
@@ -136,6 +136,14 @@ fn greeted(stream: std::os::unix::net::UnixStream) -> QueryingConnection<Query, 
     .expect("greeted")
 }
 
+/// The next delivery ends `exchange` Completed.
+fn ended(querying: &mut QueryingConnection<Query, Response>, exchange: signal::ExchangeId) {
+    match querying.delivery().expect("end") {
+        Some(Delivery::End(ending)) => assert_eq!(ending, signal::Ending::completed(exchange)),
+        other => panic!("the exchange ends after its answer, got {other:?}"),
+    }
+}
+
 fn answer(delivery: Option<Delivery<Response>>) -> Response {
     match delivery {
         Some(Delivery::Answer(answer)) => answer.response,
@@ -144,7 +152,7 @@ fn answer(delivery: Option<Delivery<Response>>) -> Response {
 }
 
 #[test]
-fn the_meta_socket_answers_each_exchange_once() {
+fn the_meta_socket_answers_each_exchange_once_then_ends_it() {
     let (server, client) = std::os::unix::net::UnixStream::pair().expect("pair");
     let serving = std::thread::spawn(move || {
         let mut server = server;
@@ -153,11 +161,21 @@ fn the_meta_socket_answers_each_exchange_once() {
             .expect("served")
     });
     let mut querying = greeted(client);
-    querying.open(Query::Count(4)).expect("open");
+    let counting = querying.open(Query::Count(4)).expect("open");
     assert_eq!(
         answer(querying.delivery().expect("delivery")),
         Response::Counted(8)
     );
+    ended(&mut querying, counting);
+    let again = querying.open(Query::Count(1)).expect("open again");
+    let mut answers = Vec::new();
+    querying
+        .follow(again, |response| {
+            answers.push(response);
+            Ok::<_, ExchangeError>(())
+        })
+        .expect("followed to its end");
+    assert_eq!(answers, [Response::Counted(2)]);
     drop(querying);
     serving.join().expect("meta thread");
 }
@@ -176,11 +194,12 @@ fn the_public_socket_answers_once_or_with_every_frame_then_ends_the_exchange() {
         Arc::new(Bounds),
     ));
     let mut querying = greeted(client);
-    querying.open(Query::Count(2)).expect("count");
+    let counting = querying.open(Query::Count(2)).expect("count");
     assert_eq!(
         answer(querying.delivery().expect("delivery")),
         Response::Counted(3)
     );
+    ended(&mut querying, counting);
     let following = querying.open(Query::Follow).expect("follow");
     assert_eq!(
         answer(querying.delivery().expect("opened")),

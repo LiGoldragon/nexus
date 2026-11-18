@@ -1,6 +1,19 @@
 # Upgrades
 
-## nexus-exchange, nexus-querying and nexus-serving 0.2.0 — the lane failure is typed, the Nexus bootstrap is shared
+## nexus-exchange, nexus-querying and nexus-serving 0.2.0 — every exchange ends, the lane failure is typed, the Nexus bootstrap is shared
+
+Every exchange ends with `Delivery::End`. A one-answer exchange, on the
+public socket (`Reply::Once`) and on the meta socket (`MetaServing`), is
+answered with its one `Delivery::Answer` and then ended
+`Ending::completed`, as a subscription is ended after its last frame, so a
+querying end reads any exchange the same way and needs no knowledge of which
+answer is a frame. `nexus-querying` adds `ExchangeFollowing::follow(exchange,
+answered)`, which hands each answer of one exchange on until its end: an end
+Completed is `Ok`; a fault, a connection closed before the end, or a delivery
+for another exchange is the error. `nexus-exchange`'s lane `Kind` gains
+`Ended` (byte 3): a translator answers a text request with each answer as
+`Answered` and then one `Ended`, or with `Failed` carrying the failure's
+text, so its client reads until the end and not until the connection closes.
 
 `nexus-exchange` declares, in `crates/exchange/ethos/exchange.ethos`,
 `LaneFault` (a `String`), `LaneFailure.[ Unsubmitted Declined Unanswered ]`,
@@ -22,11 +35,12 @@ InstanceId }`, the one frame a Nexus starts with, which the pair launcher in
 any reader within Signal's largest frame. Its archive is the bytes of a
 Nexus's own bootstrap of those four fields, so a Nexus that declared its own
 reads the shared one unchanged. `nexus-serving` re-exports `LaneFailing`,
-`LaneFailure` and `LaneFault`. `nexus-querying` changes no code; it moves with
-`nexus-exchange`. `nexus` stays 0.9.0 at `d020a62`.
+`LaneFailure` and `LaneFault`. `nexus` stays 0.9.0 at `d020a62`.
 
 To adopt: repin the three crates to this repository's revision, together,
-and take the build base that registers them. Give each emission outcome a
+and take the build base that registers them. A querying end that read one
+answer reads on to the exchange's end, or calls `follow`; a translator takes
+`translator-serving` 0.2.0, which does. Give each emission outcome a
 `LaneFailed.LaneFailure` variant (importing `nexus_exchange:[ LaneFailure ]`
 in its Ethos) and `impl LaneFailing` returning it; match it where the
 `Result` was matched. Read the Nexus's bootstrap as `NexusBootstrap` in place

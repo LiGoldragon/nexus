@@ -15,9 +15,9 @@ use crate::generated::MetaAnswering;
 /// stream itself carries.
 pub trait MetaServing {
     /// Serves one meta connection: the greeting, then each exchange in turn,
-    /// each answered with its one Answer, until the peer closes the
-    /// connection. The caller supplies the frame capacity; no runtime default
-    /// is hidden here.
+    /// each answered with its one Answer and ended Completed, until the peer
+    /// closes the connection. The caller supplies the frame capacity; no
+    /// runtime default is hidden here.
     fn serve_meta_connection<Answering>(
         &mut self,
         capacity: FrameCapacity,
@@ -94,6 +94,7 @@ impl<S: Read + Write> MetaServing for S {
                             response,
                         }),
                     )?;
+                    deliver(self, Delivery::End(Ending::completed(opening.exchange)))?;
                 }
                 Dispatch::Abandon(exchange) => {
                     // Every exchange is answered before the next frame is

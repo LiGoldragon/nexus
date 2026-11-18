@@ -1,8 +1,10 @@
 //! The translator's lane frames: a two-byte lane and kind header ahead of the
 //! payload, inside one length-prefixed frame.
 //!
-//! A client speaks text to the translator on the public and meta text lanes;
-//! the Nexus sends the translator each external effect on the emission lane,
+//! A client speaks text to the translator on the public and meta text lanes,
+//! and reads each answer back until the one frame that ends them: `Ended`
+//! when the exchange completed, `Failed`, carrying its text, when it did not.
+//! The Nexus sends the translator each external effect on the emission lane,
 //! a Signal value, and reads its outcome back on it.
 
 use std::io::{Read, Write};
@@ -237,6 +239,7 @@ fn decode_kind(value: u8) -> Result<Kind, TransportError> {
         0 => Ok(Kind::Request),
         1 => Ok(Kind::Answered),
         2 => Ok(Kind::Failed),
+        3 => Ok(Kind::Ended),
         other => Err(TransportError::UnknownKind(other)),
     }
 }
@@ -246,6 +249,7 @@ fn encode_kind(kind: &Kind) -> u8 {
         Kind::Request => 0,
         Kind::Answered => 1,
         Kind::Failed => 2,
+        Kind::Ended => 3,
     }
 }
 
@@ -265,6 +269,19 @@ mod tests {
         bytes.write_lane_frame(&frame, 128).expect("write");
         assert_eq!(u32::from_be_bytes(bytes[..4].try_into().unwrap()), 11);
         assert_eq!(Cursor::new(bytes).read_lane_frame(128).unwrap(), frame);
+    }
+
+    #[test]
+    fn an_answer_ends_with_a_frame_of_its_own_kind() {
+        let ended = Frame {
+            lane: Lane::MetaText,
+            kind: Kind::Ended,
+            payload: Vec::new(),
+        };
+        let mut bytes = Vec::new();
+        bytes.write_lane_frame(&ended, 128).expect("write");
+        assert_eq!(bytes[5], 3);
+        assert_eq!(Cursor::new(bytes).read_lane_frame(128).unwrap(), ended);
     }
 
     #[test]

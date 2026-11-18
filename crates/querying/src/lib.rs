@@ -2,8 +2,11 @@
 //!
 //! A translator, a test or another Nexus greets the socket with the digest of
 //! its call contract, opens any number of exchanges on the greeted
-//! connection, and reads the deliveries the Nexus answers them with. The
-//! connection is blocking; how long it waits is its [`Patience`].
+//! connection, and reads the deliveries the Nexus answers them with. Every
+//! exchange ends with `Delivery::End`, a one-answer exchange after its answer
+//! as a subscription after its last frame, so [`ExchangeFollowing`] reads any
+//! exchange the same way: each answer, until its end. The connection is
+//! blocking; how long it waits is its [`Patience`].
 
 #![forbid(unsafe_code)]
 
@@ -16,8 +19,9 @@ use nexus_exchange::{
     ValueWriting,
 };
 use signal::{
-    Contracted, Delivery, Dispatch, ExchangeId, ExchangeLedger, ExchangeMinting, FrameCapacity,
-    FrameError, Greeted, HandshakeReceipt, Opening, Restorable, Signal, Signalizable,
+    Conclusion, Contracted, Delivery, Dispatch, ExchangeId, ExchangeLedger, ExchangeMinting,
+    Exchanged, FrameCapacity, FrameError, Greeted, HandshakeReceipt, Opening, Restorable, Signal,
+    Signalizable,
 };
 
 /// How long the querying side waits on the Nexus.
@@ -144,6 +148,60 @@ where
             }
         };
         body.map(|body| body.restored()).transpose()
+    }
+}
+
+/// One exchange of a querying connection, read to its end.
+pub trait ExchangeFollowing: Querying {
+    /// Hands each answer of `exchange` to `answered`, in order, until the
+    /// Nexus ends the exchange: an end Completed is `Ok`. A fault, the
+    /// connection closed before the end, or a delivery for another exchange
+    /// is the error, as is the first error `answered` returns.
+    fn follow<Failure>(
+        &mut self,
+        exchange: ExchangeId,
+        answered: impl FnMut(Self::Response) -> Result<(), Failure>,
+    ) -> Result<(), Failure>
+    where
+        Failure: From<ExchangeError>;
+}
+
+impl<Connection: Querying> ExchangeFollowing for Connection {
+    fn follow<Failure>(
+        &mut self,
+        exchange: ExchangeId,
+        mut answered: impl FnMut(Self::Response) -> Result<(), Failure>,
+    ) -> Result<(), Failure>
+    where
+        Failure: From<ExchangeError>,
+    {
+        loop {
+            match self.delivery()? {
+                Some(Delivery::Answer(answer)) if answer.exchange == exchange => {
+                    answered(answer.response)?;
+                }
+                Some(Delivery::End(ending))
+                    if ending.exchange == exchange || ending.is_connection_wide() =>
+                {
+                    return match ending.conclusion {
+                        Conclusion::Completed => Ok(()),
+                        Conclusion::Faulted(fault) => Err(ExchangeError::Fault(fault).into()),
+                    };
+                }
+                Some(_) => {
+                    return Err(ExchangeError::Unexpected(
+                        "the Nexus delivered on another exchange",
+                    )
+                    .into());
+                }
+                None => {
+                    return Err(ExchangeError::Unexpected(
+                        "the Nexus closed before ending the exchange",
+                    )
+                    .into());
+                }
+            }
+        }
     }
 }
 

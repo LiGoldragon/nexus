@@ -28,7 +28,7 @@ pub trait TransportBounded {
 }
 
 /// How a public exchange is answered: once, or with every frame of a stream
-/// until it finishes.
+/// until it finishes. Either way the exchange ends with `Delivery::End`.
 pub enum Reply<Output, State, Change> {
     Once(Output),
     Subscribed(signal::Stream<State, Change>),
@@ -437,8 +437,9 @@ where
         }
     }
 
-    /// Answers a one-answer exchange, which ends with it. An exchange the
-    /// peer abandoned meanwhile is not answered.
+    /// Answers a one-answer exchange with its one answer, then ends it
+    /// Completed, as every exchange ends. An exchange the peer abandoned
+    /// meanwhile is not answered.
     async fn answer(
         &self,
         exchange: ExchangeId,
@@ -450,12 +451,20 @@ where
             .lock()
             .unwrap_or_else(|p| p.into_inner())
             .release(exchange);
-        if released.is_ok()
-            && self
-                .deliver(Self::answered(exchange, output), configuration)
-                .await
-                .is_err()
+        if released.is_err() {
+            return;
+        }
+        let delivered = match self
+            .deliver(Self::answered(exchange, output), configuration)
+            .await
         {
+            Ok(()) => {
+                self.deliver(Delivery::End(Ending::completed(exchange)), configuration)
+                    .await
+            }
+            Err(error) => Err(error),
+        };
+        if delivered.is_err() {
             self.end().await;
         }
     }

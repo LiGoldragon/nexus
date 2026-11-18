@@ -9,7 +9,7 @@ Library
   SocketNames.{ PublicNexusSocket MetaNexusSocket
                 PublicTranslatorSocket MetaTranslatorSocket }
   Lane.[ PublicText MetaText EmissionSignal ]
-  Kind.[ Request Answered Failed ]
+  Kind.[ Request Answered Failed Ended ]                ; a text answer ends Ended or Failed
   FrameDeadlineMilliseconds.Integer
   FrameCapacityBytes.Integer
   RetryDelayMilliseconds.Integer

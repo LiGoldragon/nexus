@@ -52,6 +52,7 @@ pub enum Kind {
     Request,
     Answered,
     Failed,
+    Ended,
 }
 #[rustfmt::skip]
 #[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]

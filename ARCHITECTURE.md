@@ -98,7 +98,8 @@ consumer is a crate of its own:
 - `nexus-exchange` is what both sides of a socket share: the socket names a
   Nexus's `ComponentName` gives, the bootstrap `Admission` a pair launcher
   hands both processes and its checked `ValidAdmission`, the blocking half of
-  `signal`'s exchange layer, the translator's lane frames, and `LaneFailure`,
+  `signal`'s exchange layer, the translator's lane frames, whose text
+  answers end with one `Ended` or `Failed` frame, and `LaneFailure`,
   the failure of an emission's lane, which every emission outcome carries as
   one variant of its own through `LaneFailing`, apart from its domain
   refusals: `Unsubmitted`, the effect not done; `Declined`, refused by the
@@ -106,7 +107,8 @@ consumer is a crate of its own:
   feature is the one per-consumer feature: the translator's text side may
   build it, the Nexus process never does.
 - `nexus-querying` is the querying end of a connection, `QueryingConnection`,
-  which a translator or a test greets and opens exchanges on.
+  which a translator or a test greets and opens exchanges on;
+  `ExchangeFollowing` reads one exchange's answers until its end.
 - `nexus-serving` is the daemon side. `Listeners` binds the meta socket at
   start and the public socket once the Nexus is configured; the meta socket
   answers only the paired translator, pinned by pidfd, one blocking exchange
@@ -115,7 +117,9 @@ consumer is a crate of its own:
   accepted public connection on the runtime: the greeting within the
   transport timeout, then every exchange on a task of its own, its attempt on
   the blocking pool, answered once or with each frame of a `signal::Stream`
-  as one `Delivery::Answer` on its exchange until `Delivery::End`. The
+  as one `Delivery::Answer` on its exchange; every exchange, a one-answer
+  exchange after its answer and a subscription after its last frame, ends
+  with `Delivery::End`, the meta socket's as the public socket's. The
   emission lane sends one external effect to the translator as a Signal value
   and reads its outcome back, a failed lane as the outcome's `LaneFailure`.
   `NexusBootstrap` is the one frame a Nexus starts with, written by the pair
