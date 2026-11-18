@@ -5,8 +5,5 @@ Library
   Continuation.[ Going Ended ]
   InstanceId.String                                    ; one run of the Nexus
   NexusBootstrap.{ Place Admission PeerIdentity InstanceId } ]  ; the frame a Nexus starts with
-[ MetaAnswering.{ []                                   ; traits
-                  [ Query Response ]
-                  []
-                  [ answer.{ [ Query ] [ Response ] } ] } ]
+[]                                                     ; traits
 []                                                     ; associations

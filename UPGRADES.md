@@ -1,5 +1,57 @@
 # Upgrades
 
+## nexus-exchange, nexus-querying and nexus-serving 0.3.0 — the meta socket serves a stream, the Memory file is named from Named
+
+**The meta socket serves a stream.** A meta connection is served on the
+runtime as a public one is, within the bootstrap admission's bounds (its
+deadline and frame capacity): every exchange on a task of its own, its
+answer on the blocking pool, given once or as every frame of a
+`signal::Stream`, then ended with `Delivery::End`. A meta Subscribe of the
+configuration therefore stays open after its `Opened` frame and carries each
+change the Nexus makes, and a translator's own setting changes, which it
+carries into the subscription on its side, have an open stream to reach.
+`MetaAnswering` is hand-written now (its answer is `Reply`, generic over the
+Nexus's own types, which Ethos cannot name) and leaves `serving.ethos`:
+
+```rust
+pub trait MetaAnswering: Send + Sync + 'static {
+    type Component: Named;
+    type Query: Contracted + Send + 'static;
+    type Response: Send + 'static;
+    type State: Send + 'static;
+    type Change: Send + 'static;
+    fn answer(&self, query: Self::Query) -> Reply<Self::Response, Self::State, Self::Change>;
+    fn subscribed(frame: signal::Frame<Self::State, Self::Change>) -> Self::Response;
+}
+```
+
+`Listening::serve_next_meta` and the blocking `MetaServing::serve_meta_connection`
+are gone. `Listening::accept_meta()` accepts the next meta connection from
+the paired translator (any other is reported and closed), and
+`MetaConnection::<Answering>::serve(stream, Arc<Answering>, admission)`
+(trait `MetaServing`) is the future that serves it, spawned on the runtime
+as `PublicConnection::serve` is. Meta connections are served side by side,
+so a Configure is answered while a Subscribe stays open.
+
+**The Memory file is named from Named.** `nexus-exchange` declares
+`MemoryFile` (a `String`) and the trait `MemoryNaming` (`memory_file`) on
+`ComponentName`, `<name>.memory`, beside the socket names, and hand-writes
+`MemoryPlacing::memory_path::<Component>()` for a `Place`: the file in the
+place's state directory. Every Nexus takes its Memory's path from there.
+
+All three crates move to 0.3.0 together, one revision; `nexus-querying`
+changes no code. `nexus` stays 0.9.0 at `d020a62`.
+
+To adopt: repin the three crates to this repository's revision, together,
+and take the build base that registers them. Implement `MetaAnswering` with
+`Component`, `State` and `Change` and answer with `Reply::Once(response)`, or
+`Reply::Subscribed(stream)` for a Subscribe (a Nexus with no meta
+subscription names `State` and `Change` as `std::convert::Infallible` and
+matches the uninhabited frame in `subscribed`). Replace the meta thread's
+`serve_next_meta` loop with `accept_meta` and spawn
+`MetaConnection::serve` on the runtime. A Nexus that hand-wrote its Memory
+path takes `MemoryPlacing` from `nexus-exchange`.
+
 ## nexus-exchange, nexus-querying and nexus-serving 0.2.0 — every exchange ends, the lane failure is typed, the Nexus bootstrap is shared
 
 Every exchange ends with `Delivery::End`. A one-answer exchange, on the

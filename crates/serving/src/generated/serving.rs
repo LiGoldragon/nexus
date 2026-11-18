@@ -32,9 +32,3 @@ pub struct NexusBootstrap {
     pub peer_identity: shared_translator::PeerIdentity,
     pub instance_id: InstanceId,
 }
-#[rustfmt::skip]
-pub trait MetaAnswering {
-    type Query;
-    type Response;
-    fn answer(&self, input: Self::Query) -> Self::Response;
-}

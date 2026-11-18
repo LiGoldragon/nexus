@@ -5,14 +5,11 @@ use std::os::unix::net::UnixStream;
 use std::sync::{Condvar, Mutex};
 
 use nexus_exchange::lane::PeerCalling;
-use nexus_exchange::{DeadlineStream, Named, RetryingAccept, SocketPaths, ValidAdmission};
+use nexus_exchange::{Named, RetryingAccept, SocketPaths, ValidAdmission};
 use shared_translator::placement::Place;
 use shared_translator::{Caller, PeerIdentity};
-use signal::{Contracted, Delivery, Dispatch, FrameCapacity, Restorable, Signal, Signalizable};
 
-use crate::generated::MetaAnswering;
 use crate::listener::{OwnedListener, SocketBinding};
-use crate::meta::MetaServing;
 use crate::paired::{PairedPeer, PeerMatching};
 
 /// The listeners of the Nexus `Component` in one place, and the translator
@@ -62,19 +59,10 @@ pub trait Listening: Sized {
     /// Hands the bound public socket to whoever waits to accept on it.
     fn publish_public(&self, listener: OwnedListener);
 
-    /// Accepts the next meta connection and serves it whole. A connection not
-    /// from the paired translator, or one that fails, is reported and ended;
-    /// only a listener that cannot accept is an error.
-    fn serve_next_meta<Answering>(
-        &self,
-        answering: &Answering,
-    ) -> Result<(), Box<dyn std::error::Error>>
-    where
-        Answering: MetaAnswering,
-        Answering::Query: Contracted,
-        Dispatch<Answering::Query>: rkyv::Archive,
-        Signal<Dispatch<Answering::Query>>: Restorable<Dispatch<Answering::Query>>,
-        Delivery<Answering::Response>: Signalizable;
+    /// Accepts the next meta connection from the paired translator, to be
+    /// served on the runtime by `MetaConnection`; any other is reported and
+    /// closed, and only a listener that cannot accept is an error.
+    fn accept_meta(&self) -> std::io::Result<UnixStream>;
 
     /// Waits for the public socket, then accepts the next connection from the
     /// paired translator or a peer the Nexus admits; any other is reported
@@ -124,33 +112,19 @@ impl<Component: Named> Listening for Listeners<Component> {
         self.public_ready.notify_all();
     }
 
-    fn serve_next_meta<Answering>(
-        &self,
-        answering: &Answering,
-    ) -> Result<(), Box<dyn std::error::Error>>
-    where
-        Answering: MetaAnswering,
-        Answering::Query: Contracted,
-        Dispatch<Answering::Query>: rkyv::Archive,
-        Signal<Dispatch<Answering::Query>>: Restorable<Dispatch<Answering::Query>>,
-        Delivery<Answering::Response>: Signalizable,
-    {
-        let (stream, _) = self
-            .meta
-            .listener()
-            .accept_with_retry(self.admission.retry_delay)?;
-        let exchange = (|| -> Result<(), Box<dyn std::error::Error>> {
-            self.translator.require_peer(&stream)?;
-            let mut stream = DeadlineStream::new(stream, self.admission.deadline)?;
-            stream.serve_meta_connection(
-                FrameCapacity::from(self.admission.frame_capacity),
-                answering,
-            )
-        })();
-        if let Err(error) = exchange {
-            eprintln!("{} meta connection failed: {error}", Component::title().0);
+    fn accept_meta(&self) -> std::io::Result<UnixStream> {
+        loop {
+            let (stream, _) = self
+                .meta
+                .listener()
+                .accept_with_retry(self.admission.retry_delay)?;
+            match self.translator.require_peer(&stream) {
+                Ok(()) => return Ok(stream),
+                Err(error) => {
+                    eprintln!("{} meta connection refused: {error}", Component::title().0)
+                }
+            }
         }
-        Ok(())
     }
 
     fn accept_public<Admitting: PeerAdmitting>(

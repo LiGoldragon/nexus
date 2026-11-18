@@ -3,7 +3,8 @@
 //! Every Nexus serves an ordinary and a meta socket on `signal`'s exchange
 //! layer, and its translator speaks to it and to its clients in lane frames.
 //! What both sides share is here: the socket names a Nexus's name gives and
-//! their paths in a place, the bootstrap admission its pair launcher hands
+//! their paths in a place, the Memory file its name gives in its place's
+//! state directory, the bootstrap admission its pair launcher hands
 //! both processes, the blocking frame helpers of the exchange layer, the
 //! lane framing, and the failure of an emission's lane, which every emission
 //! outcome carries as one variant of its own ([`LaneFailing`]), apart from
@@ -21,6 +22,7 @@ mod exchange;
 #[path = "generated/exchange.rs"]
 mod generated;
 pub mod lane;
+mod memory;
 mod naming;
 mod paths;
 
@@ -31,8 +33,10 @@ pub use exchange::{
 };
 pub use generated::{
     Admission, ComponentName, ComponentTitle, FrameCapacityBytes, FrameDeadlineMilliseconds, Kind,
-    Lane, LaneFailing, LaneFailure, LaneFault, MetaNexusSocket, MetaTranslatorSocket, Named,
-    PublicNexusSocket, PublicTranslatorSocket, RetryDelayMilliseconds, SocketNames, SocketNaming,
+    Lane, LaneFailing, LaneFailure, LaneFault, MemoryFile, MemoryNaming, MetaNexusSocket,
+    MetaTranslatorSocket, Named, PublicNexusSocket, PublicTranslatorSocket, RetryDelayMilliseconds,
+    SocketNames, SocketNaming,
 };
+pub use memory::MemoryPlacing;
 pub use paths::SocketPaths;
 pub use shared_translator::unix::DeadlineStream;

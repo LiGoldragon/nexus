@@ -38,6 +38,10 @@ pub struct SocketNames {
     pub meta_translator_socket: MetaTranslatorSocket,
 }
 #[rustfmt::skip]
+#[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
+#[cfg_attr(feature = "datom", derive(datom_codec::Datomizable, datom_codec::Composing))]
+pub struct MemoryFile(pub String);
+#[rustfmt::skip]
 #[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Debug, PartialEq, Eq, Hash)]
 #[cfg_attr(feature = "datom", derive(datom_codec::Datomizable, datom_codec::Composing))]
 pub enum Lane {
@@ -96,6 +100,10 @@ pub trait SocketNaming {
     fn socket_names(&self) -> SocketNames;
 }
 #[rustfmt::skip]
+pub trait MemoryNaming {
+    fn memory_file(&self) -> MemoryFile;
+}
+#[rustfmt::skip]
 pub trait LaneFailing {
     fn lane_failed(input: LaneFailure) -> Self
     where
@@ -105,4 +113,6 @@ pub trait LaneFailing {
 const _: () = {
     fn assert_componentname_socketnaming<T: SocketNaming>() {}
     let _ = assert_componentname_socketnaming::<ComponentName>;
+    fn assert_componentname_memorynaming<T: MemoryNaming>() {}
+    let _ = assert_componentname_memorynaming::<ComponentName>;
 };

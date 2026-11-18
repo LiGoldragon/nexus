@@ -1072,7 +1072,7 @@ rec {
       };
       "nexus-exchange" = rec {
         crateName = "nexus-exchange";
-        version = "0.2.0";
+        version = "0.3.0";
         edition = "2024";
         src = lib.cleanSourceWith { filter = sourceFilter;  src = ./crates/exchange; };
         libName = "nexus_exchange";
@@ -1119,7 +1119,7 @@ rec {
       };
       "nexus-querying" = rec {
         crateName = "nexus-querying";
-        version = "0.2.0";
+        version = "0.3.0";
         edition = "2024";
         src = lib.cleanSourceWith { filter = sourceFilter;  src = ./crates/querying; };
         libName = "nexus_querying";
@@ -1144,7 +1144,7 @@ rec {
       };
       "nexus-serving" = rec {
         crateName = "nexus-serving";
-        version = "0.2.0";
+        version = "0.3.0";
         edition = "2024";
         src = lib.cleanSourceWith { filter = sourceFilter;  src = ./crates/serving; };
         libName = "nexus_serving";

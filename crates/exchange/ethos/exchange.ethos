@@ -8,6 +8,7 @@ Library
   MetaTranslatorSocket.String
   SocketNames.{ PublicNexusSocket MetaNexusSocket
                 PublicTranslatorSocket MetaTranslatorSocket }
+  MemoryFile.String                                    ; the Nexus's Memory, in its place's state directory
   Lane.[ PublicText MetaText EmissionSignal ]
   Kind.[ Request Answered Failed Ended ]                ; a text answer ends Ended or Failed
   FrameDeadlineMilliseconds.Integer
@@ -21,5 +22,6 @@ Library
 [ Named.[ name:[ ComponentName ]                       ; traits
           title:[ ComponentTitle ] ]
   SocketNaming.[ socket_names.[ SocketNames ] ]
+  MemoryNaming.[ memory_file.[ MemoryFile ] ]
   LaneFailing.[ lane_failed:{ [ LaneFailure ] [ Self ] } ] ]  ; an emission outcome, failed on its lane
-[ ComponentName.[ SocketNaming ] ]                     ; associations
+[ ComponentName.[ SocketNaming MemoryNaming ] ]        ; associations

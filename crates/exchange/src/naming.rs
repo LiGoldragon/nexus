@@ -1,8 +1,8 @@
-//! A Nexus's sockets are named after the Nexus.
+//! A Nexus's sockets and its Memory are named after the Nexus.
 
 use crate::generated::{
-    ComponentName, MetaNexusSocket, MetaTranslatorSocket, PublicNexusSocket,
-    PublicTranslatorSocket, SocketNames, SocketNaming,
+    ComponentName, MemoryFile, MemoryNaming, MetaNexusSocket, MetaTranslatorSocket,
+    PublicNexusSocket, PublicTranslatorSocket, SocketNames, SocketNaming,
 };
 
 impl SocketNaming for ComponentName {
@@ -17,5 +17,12 @@ impl SocketNaming for ComponentName {
             public_translator_socket: PublicTranslatorSocket(format!("{name}-translator.sock")),
             meta_translator_socket: MetaTranslatorSocket(format!("{name}-meta-translator.sock")),
         }
+    }
+}
+
+impl MemoryNaming for ComponentName {
+    /// `<name>.memory`, the file a Nexus keeps its Memory in.
+    fn memory_file(&self) -> MemoryFile {
+        MemoryFile(format!("{}.memory", self.0))
     }
 }

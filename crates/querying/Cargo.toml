@@ -1,6 +1,6 @@
 [package]
 name = "nexus-querying"
-version = "0.2.0"
+version = "0.3.0"
 edition = "2024"
 rust-version = "1.89"
 license = "MIT OR Apache-2.0"
@@ -9,7 +9,7 @@ description = "The querying end of a connection to a Nexus socket: greet it, ope
 publish = false
 
 [dependencies]
-nexus-exchange = { path = "../exchange", version = "0.2.0" }
+nexus-exchange = { path = "../exchange", version = "0.3.0" }
 rkyv = { version = "0.8", default-features = false, features = ["std", "bytecheck", "little_endian", "pointer_width_32", "unaligned"] }
 signal = { git = "https://github.com/LiGoldragon/signal", rev = "4f5cbb9", default-features = false }
 

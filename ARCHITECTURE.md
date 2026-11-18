@@ -96,7 +96,8 @@ each Nexus hand-writes only its own bodies. A dependency set that differs by
 consumer is a crate of its own:
 
 - `nexus-exchange` is what both sides of a socket share: the socket names a
-  Nexus's `ComponentName` gives, the bootstrap `Admission` a pair launcher
+  Nexus's `ComponentName` gives and its Memory file, `<name>.memory` in its
+  place's state directory (`MemoryPlacing::memory_path`), the bootstrap `Admission` a pair launcher
   hands both processes and its checked `ValidAdmission`, the blocking half of
   `signal`'s exchange layer, the translator's lane frames, whose text
   answers end with one `Ended` or `Failed` frame, and `LaneFailure`,
@@ -111,15 +112,19 @@ consumer is a crate of its own:
   `ExchangeFollowing` reads one exchange's answers until its end.
 - `nexus-serving` is the daemon side. `Listeners` binds the meta socket at
   start and the public socket once the Nexus is configured; the meta socket
-  answers only the paired translator, pinned by pidfd, one blocking exchange
-  at a time (`MetaServing`), and the public socket admits the translator and
-  the peers the Nexus's `PeerAdmitting` names. `PublicConnection` serves each
-  accepted public connection on the runtime: the greeting within the
-  transport timeout, then every exchange on a task of its own, its attempt on
-  the blocking pool, answered once or with each frame of a `signal::Stream`
-  as one `Delivery::Answer` on its exchange; every exchange, a one-answer
-  exchange after its answer and a subscription after its last frame, ends
-  with `Delivery::End`, the meta socket's as the public socket's. The
+  admits only the paired translator, pinned by pidfd (`accept_meta`), and the
+  public socket admits the translator and the peers the Nexus's
+  `PeerAdmitting` names. `PublicConnection` serves each accepted public
+  connection on the runtime, and `MetaConnection` each meta connection, the
+  same serving within the bootstrap admission's bounds: the greeting within
+  the transport timeout, then every exchange on a task of its own, its
+  attempt on the blocking pool, answered once or with each frame of a
+  `signal::Stream` as one `Delivery::Answer` on its exchange; every
+  exchange, a one-answer exchange after its answer and a subscription after
+  its last frame, ends with `Delivery::End`. A meta Subscribe of the
+  configuration is such a stream: it stays open, carrying each change the
+  Nexus makes, and the translator carries its own settings' changes into it
+  on its side. The
   emission lane sends one external effect to the translator as a Signal value
   and reads its outcome back, a failed lane as the outcome's `LaneFailure`.
   `NexusBootstrap` is the one frame a Nexus starts with, written by the pair
