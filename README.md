@@ -1,6 +1,10 @@
 # Nexus
 
-`nexus` is the universal library for Nexus components. It owns the standard
+`nexus` is the universal library for Nexus components. Beside it in this
+workspace, `nexus-exchange`, `nexus-querying` and `nexus-serving` are the
+serving every Nexus shares: its socket names and lanes, the querying end of a
+connection, and the daemon's listeners, meta and public exchange loops and
+emission lane, which a Nexus fills with its own bodies. `nexus` owns the standard
 ontology shared by every long-running Nexus while component repositories own
 their domain configuration, signal contracts, Sema records, and effects.
 

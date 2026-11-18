@@ -1,8 +1,9 @@
 # Architecture
 
-This crate owns universal Nexus types and trait-borne behavior. Domain nouns
-remain in each component's authored Signal and Sema contracts. Transport,
-listener, actor, and runner mechanics remain in runtime libraries.
+The `nexus` crate owns universal Nexus types and trait-borne behavior. Domain
+nouns remain in each component's authored Signal and Sema contracts. The
+serving every Nexus shares is in the workspace's other crates (see "Shared
+serving" below); actor and runner mechanics remain each component's.
 
 `ConfigurationState<Configuration>` is persisted by a component in the same
 Sema boundary as its typed configuration. `Configurable<Configuration>` names
@@ -87,3 +88,36 @@ The position is never a wire value; the frames are `signal::Frame`.
 at lag, a change once per subscriber) and `Send + Sync + 'static`, as the
 shared lock and the boxed stream require; those bounds are on the Publisher's
 implementations, not on the Ethos traits.
+
+## Shared serving
+
+The serving, the sockets and the text are written once, for every Nexus, and
+each Nexus hand-writes only its own bodies. A dependency set that differs by
+consumer is a crate of its own:
+
+- `nexus-exchange` is what both sides of a socket share: the socket names a
+  Nexus's `ComponentName` gives, the bootstrap `Admission` a pair launcher
+  hands both processes and its checked `ValidAdmission`, the blocking half of
+  `signal`'s exchange layer, and the translator's lane frames. Its `datom`
+  feature is the one per-consumer feature: the translator's text side may
+  build it, the Nexus process never does.
+- `nexus-querying` is the querying end of a connection, `QueryingConnection`,
+  which a translator or a test greets and opens exchanges on.
+- `nexus-serving` is the daemon side. `Listeners` binds the meta socket at
+  start and the public socket once the Nexus is configured; the meta socket
+  answers only the paired translator, pinned by pidfd, one blocking exchange
+  at a time (`MetaServing`), and the public socket admits the translator and
+  the peers the Nexus's `PeerAdmitting` names. `PublicConnection` serves each
+  accepted public connection on the runtime: the greeting within the
+  transport timeout, then every exchange on a task of its own, its attempt on
+  the blocking pool, answered once or with each frame of a `signal::Stream`
+  as one `Delivery::Answer` on its exchange until `Delivery::End`. The
+  emission lane sends one external effect to the translator as a Signal value
+  and reads its outcome back.
+
+A Nexus implements `MetaAnswering`, `PublicServing`, `TransportBounded`,
+`PeerAdmitting` and `Named` with its own bodies. Whatever Ethos can declare
+is declared in `crates/exchange/ethos/exchange.ethos` and
+`crates/serving/ethos/serving.ethos`; what is hand-written is what Ethos
+cannot name: sockets, locks and channels, durations, futures, generic
+methods over another contract's query, and a live `signal::Stream`.

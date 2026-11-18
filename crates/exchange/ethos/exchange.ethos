@@ -1,0 +1,20 @@
+Library
+[]                                                     ; imports
+[ ComponentName.String                                 ; types
+  ComponentTitle.String
+  PublicNexusSocket.String
+  MetaNexusSocket.String
+  PublicTranslatorSocket.String
+  MetaTranslatorSocket.String
+  SocketNames.{ PublicNexusSocket MetaNexusSocket
+                PublicTranslatorSocket MetaTranslatorSocket }
+  Lane.[ PublicText MetaText EmissionSignal ]
+  Kind.[ Request Answered Failed ]
+  FrameDeadlineMilliseconds.Integer
+  FrameCapacityBytes.Integer
+  RetryDelayMilliseconds.Integer
+  Admission.{ FrameDeadlineMilliseconds FrameCapacityBytes RetryDelayMilliseconds } ]
+[ Named.[ name:[ ComponentName ]                       ; traits
+          title:[ ComponentTitle ] ]
+  SocketNaming.[ socket_names.[ SocketNames ] ] ]
+[ ComponentName.[ SocketNaming ] ]                     ; associations

@@ -1,0 +1,10 @@
+Library
+[]                                                     ; imports
+[ Closing.[ Finished Withdrawn Abandoned ]             ; types
+  Continuation.[ Going Ended ]
+  EmissionFailure.[ Unsubmitted.String Unanswered.String ] ]
+[ MetaAnswering.{ []                                   ; traits
+                  [ Query Response ]
+                  []
+                  [ answer.{ [ Query ] [ Response ] } ] } ]
+[]                                                     ; associations

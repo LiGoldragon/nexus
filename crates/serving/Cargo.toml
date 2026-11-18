@@ -1,0 +1,36 @@
+[package]
+name = "nexus-serving"
+version = "0.1.0"
+edition = "2024"
+rust-version = "1.89"
+license = "MIT OR Apache-2.0"
+repository = "https://github.com/LiGoldragon/nexus"
+description = "The serving every Nexus daemon shares: its sockets, paired-peer admission, the meta and public exchange loops and the emission lane to its translator."
+publish = false
+
+[features]
+default = []
+datom = ["dep:datom-codec", "dep:protos", "nexus-exchange/datom"]
+
+[dependencies]
+datom-codec = { git = "https://github.com/LiGoldragon/datom-codec", rev = "09a0526", optional = true }
+# futures-channel, futures-util, mio and tokio carry the dependency edges the build base's
+# shared feature set attaches.
+futures-channel = { version = "0.3.34", default-features = false, features = ["sink"] }
+futures-util = { version = "0.3.34", default-features = false, features = ["std", "async-await-macro", "channel", "io", "sink"] }
+mio = { version = "1.2", features = ["log"] }
+nexus-exchange = { path = "../exchange", version = "0.1.0" }
+protos = { git = "https://github.com/LiGoldragon/protos", rev = "c93b598", optional = true }
+rkyv = { version = "0.8", default-features = false, features = ["std", "bytecheck", "little_endian", "pointer_width_32", "unaligned"] }
+shared-translator = { package = "translator", git = "https://github.com/LiGoldragon/translator", rev = "29601a3", default-features = false, features = ["unix"] }
+signal = { git = "https://github.com/LiGoldragon/signal", rev = "4f5cbb9", default-features = false }
+tokio = { version = "1.53.1", default-features = false, features = ["rt", "net", "io-util", "time", "sync", "macros", "signal", "tracing"] }
+
+[dev-dependencies]
+nexus-querying = { path = "../querying", version = "0.1.0" }
+tokio = { version = "1.53.1", default-features = false, features = ["rt-multi-thread", "net", "io-util", "time", "sync", "macros"] }
+
+[lints.rust]
+unsafe_code = "forbid"
+unused = { level = "warn", priority = -1 }
+dead_code = "warn"

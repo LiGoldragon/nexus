@@ -1,0 +1,28 @@
+[package]
+name = "nexus-exchange"
+version = "0.1.0"
+edition = "2024"
+rust-version = "1.89"
+license = "MIT OR Apache-2.0"
+repository = "https://github.com/LiGoldragon/nexus"
+description = "The exchange layer both sides of a Nexus socket speak: framing, socket names, the bootstrap admission and the translator's lanes."
+publish = false
+
+[features]
+default = []
+datom = ["dep:datom-codec", "dep:protos", "signal/datom", "shared-translator/datom"]
+
+[dependencies]
+datom-codec = { git = "https://github.com/LiGoldragon/datom-codec", rev = "09a0526", optional = true }
+protos = { git = "https://github.com/LiGoldragon/protos", rev = "c93b598", optional = true }
+rkyv = { version = "0.8", default-features = false, features = ["std", "bytecheck", "little_endian", "pointer_width_32", "unaligned"] }
+signal = { git = "https://github.com/LiGoldragon/signal", rev = "4f5cbb9", default-features = false }
+shared-translator = { package = "translator", git = "https://github.com/LiGoldragon/translator", rev = "29601a3", default-features = false, features = ["unix"] }
+
+[dev-dependencies]
+libc = "0.2"
+
+[lints.rust]
+unsafe_code = "forbid"
+unused = { level = "warn", priority = -1 }
+dead_code = "warn"
