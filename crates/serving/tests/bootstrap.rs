@@ -2,7 +2,7 @@
 //! whole, in the bytes the Nexus read before the frame was shared.
 
 use nexus_exchange::{
-    Admission, FrameCapacityBytes, FrameDeadlineMilliseconds, RetryDelayMilliseconds,
+    Admission, ConnectionCapacity, FrameCapacityBytes, FrameDeadlineMilliseconds,
 };
 use nexus_serving::{BootstrapReading, InstanceId, NexusBootstrap};
 use shared_translator::placement::{Place, PlaceName, Runtime, State};
@@ -19,7 +19,7 @@ fn bootstrap() -> NexusBootstrap {
         admission: Admission {
             frame_deadline_milliseconds: FrameDeadlineMilliseconds(70_000),
             frame_capacity_bytes: FrameCapacityBytes(8_388_608),
-            retry_delay_milliseconds: RetryDelayMilliseconds(25),
+            connection_capacity: ConnectionCapacity(64),
         },
         peer_identity: PeerIdentity {
             user_id: UserId(1000),

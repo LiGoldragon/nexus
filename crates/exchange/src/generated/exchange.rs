@@ -69,14 +69,14 @@ pub struct FrameCapacityBytes(pub i64);
 #[rustfmt::skip]
 #[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
 #[cfg_attr(feature = "datom", derive(datom_codec::Datomizable, datom_codec::Composing))]
-pub struct RetryDelayMilliseconds(pub i64);
+pub struct ConnectionCapacity(pub i64);
 #[rustfmt::skip]
 #[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Debug, PartialEq, Eq, Hash)]
 #[cfg_attr(feature = "datom", derive(datom_codec::Datomizable, datom_codec::Composing))]
 pub struct Admission {
     pub frame_deadline_milliseconds: FrameDeadlineMilliseconds,
     pub frame_capacity_bytes: FrameCapacityBytes,
-    pub retry_delay_milliseconds: RetryDelayMilliseconds,
+    pub connection_capacity: ConnectionCapacity,
 }
 #[rustfmt::skip]
 #[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
@@ -89,6 +89,7 @@ pub enum LaneFailure {
     Unsubmitted(LaneFault),
     Declined(LaneFault),
     Unanswered(LaneFault),
+    Unaccepted(LaneFault),
 }
 #[rustfmt::skip]
 pub trait Named {

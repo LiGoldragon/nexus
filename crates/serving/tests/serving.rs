@@ -117,7 +117,7 @@ fn admission() -> ValidAdmission {
     ValidAdmission {
         deadline: Duration::from_millis(500),
         frame_capacity: 4096,
-        retry_delay: Duration::from_millis(5),
+        connection_capacity: 8,
     }
 }
 

@@ -10,7 +10,7 @@
 //! frame body is restored and how a value is written whole within a deadline.
 
 use std::io::Read;
-use std::os::unix::net::{SocketAddr, UnixListener, UnixStream};
+use std::os::unix::net::UnixStream;
 use std::time::Duration;
 
 use signal::{
@@ -184,24 +184,6 @@ impl ValueWriting for UnixStream {
     }
 }
 
-/// A listener that outlasts a transient accept failure.
-pub trait RetryingAccept {
-    /// Accepts the next connection; a transient failure, such as running out
-    /// of descriptors, waits `retry_delay` and accepts again, and a permanent
-    /// one is returned.
-    fn accept_with_retry(&self, retry_delay: Duration)
-    -> std::io::Result<(UnixStream, SocketAddr)>;
-}
-
-impl RetryingAccept for UnixListener {
-    fn accept_with_retry(
-        &self,
-        retry_delay: Duration,
-    ) -> std::io::Result<(UnixStream, SocketAddr)> {
-        shared_translator::unix::accept_with_retry(self, retry_delay)
-    }
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -257,37 +239,5 @@ mod tests {
                 capacity: 32
             })
         ));
-    }
-
-    #[test]
-    fn transient_accept_waits_then_serves_the_next_client() {
-        let mut attempts = 0;
-        let mut waits = Vec::new();
-        let value = shared_translator::unix::accept_with_retry_using(
-            || {
-                attempts += 1;
-                if attempts == 1 {
-                    Err(std::io::Error::from_raw_os_error(libc::EMFILE))
-                } else {
-                    Ok("valid client")
-                }
-            },
-            |delay| waits.push(delay),
-            Duration::from_millis(7),
-        )
-        .expect("second client accepted");
-        assert_eq!(value, "valid client");
-        assert_eq!(waits, [Duration::from_millis(7)]);
-    }
-
-    #[test]
-    fn invalid_listener_is_a_visible_fatal_error() {
-        let error = shared_translator::unix::accept_with_retry_using(
-            || Err::<(), _>(std::io::Error::from_raw_os_error(libc::EBADF)),
-            |_| panic!("permanent error must not retry"),
-            Duration::from_millis(7),
-        )
-        .expect_err("bad listener is fatal");
-        assert_eq!(error.raw_os_error(), Some(libc::EBADF));
     }
 }

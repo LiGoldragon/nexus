@@ -4,13 +4,13 @@ use crate::generated::Admission;
 use crate::lane::HEADER_BYTES;
 
 /// The bootstrap admission as the processes use it: the deadline every frame
-/// is read and written within, the largest frame admitted, and how long a
-/// transient accept failure waits before the next accept.
+/// is read and written within, the largest frame admitted, and how many
+/// connections one listener holds open at once.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct ValidAdmission {
     pub deadline: std::time::Duration,
     pub frame_capacity: usize,
-    pub retry_delay: std::time::Duration,
+    pub connection_capacity: usize,
 }
 
 impl TryFrom<&Admission> for ValidAdmission {
@@ -27,17 +27,16 @@ impl TryFrom<&Admission> for ValidAdmission {
             .ok()
             .filter(|value| (HEADER_BYTES..=signal::MAXIMUM_SIGNAL_BYTES).contains(value))
             .ok_or("frame capacity is outside the shared wire bound")?;
-        let retry_milliseconds = u64::try_from(value.retry_delay_milliseconds.0)
+        let connection_capacity = usize::try_from(value.connection_capacity.0)
             .ok()
             .filter(|value| *value > 0)
-            .ok_or("retry delay must be positive and representable")?;
-        let retry_delay = std::time::Duration::from_millis(retry_milliseconds);
+            .ok_or("connection capacity must be positive")?;
         let admission =
-            shared_translator::unix::Admission::new(deadline, frame_capacity, retry_delay)?;
+            shared_translator::unix::Admission::new(deadline, frame_capacity, connection_capacity)?;
         Ok(Self {
             deadline: admission.deadline(),
             frame_capacity: admission.frame_capacity(),
-            retry_delay: admission.retry_delay(),
+            connection_capacity: admission.connection_capacity(),
         })
     }
 }

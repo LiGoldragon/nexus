@@ -104,14 +104,22 @@ consumer is a crate of its own:
   the failure of an emission's lane, which every emission outcome carries as
   one variant of its own through `LaneFailing`, apart from its domain
   refusals: `Unsubmitted`, the effect not done; `Declined`, refused by the
-  translator before acting; `Unanswered`, sent and no answer read. Its `datom`
+  translator before acting; `Unanswered`, sent and no answer read; and
+  `Unaccepted`, a listener's accept that failed below its capacity, which
+  ends the listener. The admission bounds every listener by its
+  `ConnectionCapacity`: `CapacityAccepting::accept_within` accepts while
+  fewer connections hold a `ConnectionSlot` of its `ConnectionGate` than the
+  capacity, and a connection ending, its slot dropped, wakes it; a client
+  that comes while the listener is full waits in the listen backlog. Its `datom`
   feature is the one per-consumer feature: the translator's text side may
   build it, the Nexus process never does.
 - `nexus-querying` is the querying end of a connection, `QueryingConnection`,
   which a translator or a test greets and opens exchanges on;
   `ExchangeFollowing` reads one exchange's answers until its end.
 - `nexus-serving` is the daemon side. `Listeners` binds the meta socket at
-  start and the public socket once the Nexus is configured; the meta socket
+  start and the public socket once the Nexus is configured, each appearing at
+  its path only once it listens, so a translator waiting for it connects
+  once; the meta socket
   admits only the paired translator, pinned by pidfd (`accept_meta`), and the
   public socket admits the translator and the peers the Nexus's
   `PeerAdmitting` names. `PublicConnection` serves each accepted public

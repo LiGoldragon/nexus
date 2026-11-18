@@ -13,12 +13,13 @@ Library
   Kind.[ Request Answered Failed Ended ]                ; a text answer ends Ended or Failed
   FrameDeadlineMilliseconds.Integer
   FrameCapacityBytes.Integer
-  RetryDelayMilliseconds.Integer
-  Admission.{ FrameDeadlineMilliseconds FrameCapacityBytes RetryDelayMilliseconds }
+  ConnectionCapacity.Integer                           ; how many connections one listener holds open at once
+  Admission.{ FrameDeadlineMilliseconds FrameCapacityBytes ConnectionCapacity }
   LaneFault.String
   LaneFailure.[ Unsubmitted.LaneFault                  ; not sent whole: it did not happen
                 Declined.LaneFault                     ; refused by the translator unread or undone
-                Unanswered.LaneFault ] ]               ; sent, no answer read: it may have happened
+                Unanswered.LaneFault                   ; sent, no answer read: it may have happened
+                Unaccepted.LaneFault ] ]               ; a listener's accept failed below its capacity: it ends
 [ Named.[ name:[ ComponentName ]                       ; traits
           title:[ ComponentTitle ] ]
   SocketNaming.[ socket_names.[ SocketNames ] ]

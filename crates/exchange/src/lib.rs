@@ -5,7 +5,8 @@
 //! What both sides share is here: the socket names a Nexus's name gives and
 //! their paths in a place, the Memory file its name gives in its place's
 //! state directory, the bootstrap admission its pair launcher hands
-//! both processes, the blocking frame helpers of the exchange layer, the
+//! both processes, the accept every listener makes within the admission's
+//! connection capacity, the blocking frame helpers of the exchange layer, the
 //! lane framing, and the failure of an emission's lane, which every emission
 //! outcome carries as one variant of its own ([`LaneFailing`]), apart from
 //! what the world answered.
@@ -16,6 +17,7 @@
 
 #![forbid(unsafe_code)]
 
+mod accepting;
 mod admission;
 mod exchange;
 #[rustfmt::skip]
@@ -26,16 +28,18 @@ mod memory;
 mod naming;
 mod paths;
 
+pub use accepting::{
+    Admitted, CapacityAccepting, ConnectionGate, ConnectionGating, ConnectionSlot,
+};
 pub use admission::ValidAdmission;
 pub use exchange::{
-    EndingFrameReading, ExchangeError, IdleFrameReading, RetryingAccept, ValueRestoring,
-    ValueWriting,
+    EndingFrameReading, ExchangeError, IdleFrameReading, ValueRestoring, ValueWriting,
 };
 pub use generated::{
-    Admission, ComponentName, ComponentTitle, FrameCapacityBytes, FrameDeadlineMilliseconds, Kind,
-    Lane, LaneFailing, LaneFailure, LaneFault, MemoryFile, MemoryNaming, MetaNexusSocket,
-    MetaTranslatorSocket, Named, PublicNexusSocket, PublicTranslatorSocket, RetryDelayMilliseconds,
-    SocketNames, SocketNaming,
+    Admission, ComponentName, ComponentTitle, ConnectionCapacity, FrameCapacityBytes,
+    FrameDeadlineMilliseconds, Kind, Lane, LaneFailing, LaneFailure, LaneFault, MemoryFile,
+    MemoryNaming, MetaNexusSocket, MetaTranslatorSocket, Named, PublicNexusSocket,
+    PublicTranslatorSocket, SocketNames, SocketNaming,
 };
 pub use memory::MemoryPlacing;
 pub use paths::SocketPaths;
