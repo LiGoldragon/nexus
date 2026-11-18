@@ -5,7 +5,7 @@ use std::os::unix::net::UnixStream;
 use std::sync::{Condvar, Mutex};
 
 use nexus_exchange::lane::PeerCalling;
-use nexus_exchange::{DeadlineStream, Named, RetryingAccept, ValidAdmission};
+use nexus_exchange::{DeadlineStream, Named, RetryingAccept, SocketPaths, ValidAdmission};
 use shared_translator::placement::Place;
 use shared_translator::{Caller, PeerIdentity};
 use signal::{Contracted, Delivery, Dispatch, FrameCapacity, Restorable, Signal, Signalizable};
@@ -14,7 +14,6 @@ use crate::generated::MetaAnswering;
 use crate::listener::{OwnedListener, SocketBinding};
 use crate::meta::MetaServing;
 use crate::paired::{PairedPeer, PeerMatching};
-use crate::paths::SocketPaths;
 
 /// The listeners of the Nexus `Component` in one place, and the translator
 /// it is paired with.

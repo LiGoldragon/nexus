@@ -27,7 +27,6 @@ mod listener;
 mod listeners;
 mod meta;
 mod paired;
-mod paths;
 mod public;
 
 pub use asynchronous::{AsyncFrameReading, AsyncValueWriting};
@@ -37,6 +36,6 @@ pub use generated::{Closing, Continuation, EmissionFailure, MetaAnswering};
 pub use listener::{OwnedListener, SocketBinding};
 pub use listeners::{AcceptedPublic, Listeners, Listening, PeerAdmitting};
 pub use meta::MetaServing;
+pub use nexus_exchange::SocketPaths;
 pub use paired::{PairedPeer, PeerMatching};
-pub use paths::SocketPaths;
 pub use public::{ConnectionServing, PublicConnection, PublicServing, Reply, TransportBounded};

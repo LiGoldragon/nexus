@@ -1,9 +1,12 @@
 //! A Nexus's four socket paths, in its place's runtime directory.
+//!
+//! The paths are hand-written: a declared Ethos type takes no type parameter
+//! and archives no path, and `SocketPaths` is generic over the Nexus it names.
 
 use std::marker::PhantomData;
 use std::path::PathBuf;
 
-use nexus_exchange::{Named, SocketNaming};
+use crate::generated::{Named, SocketNaming};
 use shared_translator::placement::Place;
 
 /// The paths of the Nexus `Component`'s sockets and its translator's.

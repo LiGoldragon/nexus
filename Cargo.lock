@@ -313,7 +313,7 @@ dependencies = [
 
 [[package]]
 name = "nexus-exchange"
-version = "0.1.0"
+version = "0.1.1"
 dependencies = [
  "datom-codec",
  "libc",
@@ -325,7 +325,7 @@ dependencies = [
 
 [[package]]
 name = "nexus-querying"
-version = "0.1.0"
+version = "0.1.1"
 dependencies = [
  "nexus-exchange",
  "rkyv",
@@ -334,7 +334,7 @@ dependencies = [
 
 [[package]]
 name = "nexus-serving"
-version = "0.1.0"
+version = "0.1.1"
 dependencies = [
  "datom-codec",
  "futures-channel",

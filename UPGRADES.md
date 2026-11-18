@@ -1,5 +1,20 @@
 # Upgrades
 
+## nexus-exchange, nexus-querying and nexus-serving 0.1.1 — the socket paths are the exchange's
+
+`SocketPaths<Component>` (`From<&Place>` for a `Named` component: `public`,
+`meta`, `translator`, `meta_translator`) moves from `nexus-serving` into
+`nexus-exchange`, unchanged, so a client end takes a translator's socket path
+from it without linking the serving's tokio. It is hand-written: a declared
+Ethos type takes no type parameter and archives no path. `nexus-serving`
+re-exports it as `nexus_serving::SocketPaths`, so a consumer naming it there
+changes nothing. `nexus-querying` changes no code; it moves with
+`nexus-exchange`, so a consumer locks one revision of the three. `nexus`
+stays 0.9.0 at `d020a62`.
+
+To adopt: repin the three crates to this repository's revision, together, and
+take the build base that registers them.
+
 ## nexus-exchange, nexus-querying and nexus-serving 0.1.0 — the serving every Nexus shares
 
 The repository is a workspace of four crates, each with its own version, on
