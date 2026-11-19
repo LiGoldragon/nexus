@@ -73,6 +73,16 @@ rec {
       # File a bug if you depend on any for non-debug work!
       debug = internal.debugCrate { inherit packageId; };
     };
+    "nexus-relay" = rec {
+      packageId = "nexus-relay";
+      build = internal.buildRustCrateWithFeatures {
+        packageId = "nexus-relay";
+      };
+
+      # Debug support which might change between releases.
+      # File a bug if you depend on any for non-debug work!
+      debug = internal.debugCrate { inherit packageId; };
+    };
     "nexus-serving" = rec {
       packageId = "nexus-serving";
       build = internal.buildRustCrateWithFeatures {
@@ -1141,6 +1151,40 @@ rec {
           }
         ];
 
+      };
+      "nexus-relay" = rec {
+        crateName = "nexus-relay";
+        version = "0.1.0";
+        edition = "2024";
+        src = lib.cleanSourceWith { filter = sourceFilter;  src = ./crates/relay; };
+        libName = "nexus_relay";
+        dependencies = [
+          {
+            name = "datom-codec";
+            packageId = "datom-codec";
+            optional = true;
+          }
+          {
+            name = "protos";
+            packageId = "protos";
+            optional = true;
+          }
+          {
+            name = "rkyv";
+            packageId = "rkyv";
+            usesDefaultFeatures = false;
+            features = [ "std" "bytecheck" "little_endian" "pointer_width_32" "unaligned" ];
+          }
+          {
+            name = "signal";
+            packageId = "signal";
+            usesDefaultFeatures = false;
+          }
+        ];
+        features = {
+          "datom" = [ "dep:datom-codec" "dep:protos" ];
+        };
+        resolvedDefaultFeatures = [ "datom" "default" ];
       };
       "nexus-serving" = rec {
         crateName = "nexus-serving";

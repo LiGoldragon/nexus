@@ -333,6 +333,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "nexus-relay"
+version = "0.1.0"
+dependencies = [
+ "datom-codec",
+ "protos",
+ "rkyv",
+ "signal",
+]
+
+[[package]]
 name = "nexus-serving"
 version = "0.3.0"
 dependencies = [

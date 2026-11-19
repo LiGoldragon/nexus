@@ -77,6 +77,11 @@
               declaration = ./crates/nexus/ethos/library.ethos;
               committed = ./crates/nexus/src/generated/library.rs;
             };
+            relay-generated = contract {
+              name = "relay";
+              declaration = ./crates/relay/ethos/library.ethos;
+              committed = ./crates/relay/src/generated/library.rs;
+            };
             fmt = pkgs.runCommand "nexus-fmt" { nativeBuildInputs = [ toolchain ]; } ''
               cd ${./.}
               find crates -name '*.rs' -not -path '*/generated/*' -print0 \

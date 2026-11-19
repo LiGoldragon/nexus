@@ -8,8 +8,15 @@ repository = "https://github.com/LiGoldragon/nexus"
 description = "One opaque request frame and one opaque reply, through one configured local socket."
 publish = false
 
+[features]
+default = []
+datom = ["dep:datom-codec", "dep:protos"]
+
 [dependencies]
-signal = { git = "https://github.com/LiGoldragon/signal", rev = "4f5cbb9322ecae7a8821439179e778d495d7804a", default-features = false }
+signal = { git = "https://github.com/LiGoldragon/signal", rev = "4f5cbb9", default-features = false }
+rkyv = { version = "0.8", default-features = false, features = ["std", "bytecheck", "little_endian", "pointer_width_32", "unaligned"] }
+datom-codec = { git = "https://github.com/LiGoldragon/datom-codec", rev = "09a0526", optional = true }
+protos = { git = "https://github.com/LiGoldragon/protos", rev = "c93b598", optional = true }
 
 [lints.rust]
 unsafe_code = "forbid"
