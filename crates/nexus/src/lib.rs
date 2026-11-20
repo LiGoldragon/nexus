@@ -24,3 +24,7 @@ pub use generated::{Capacity, CapacityRefusal, Publishing, Reached, Subscribable
 pub use publisher::Publisher;
 pub use relocation::{Relocated, Relocating, Relocation};
 pub use situation::{Bearing, Identifying, Situated, Situating, Situation, StoreIdentity};
+mod sending;
+pub use sending::{
+    EmissionSender, Sending, SignalReceiving, SignalSubmitting, TransmissionError, WireValue,
+};

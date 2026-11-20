@@ -1054,7 +1054,7 @@ rec {
             name = "tokio";
             packageId = "tokio";
             usesDefaultFeatures = false;
-            features = [ "sync" ];
+            features = [ "sync" "net" "io-util" ];
           }
         ];
         buildDependencies = [
