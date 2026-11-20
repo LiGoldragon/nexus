@@ -1,0 +1,21 @@
+[package]
+name = "nexus-client"
+version = "0.1.0"
+edition = "2024"
+rust-version = "1.89"
+license = "MIT OR Apache-2.0"
+repository = "https://github.com/LiGoldragon/nexus"
+description = "The component-independent ordinary and meta Nexus CLI."
+publish = false
+
+[dependencies]
+datom-codec = { git = "https://github.com/LiGoldragon/datom-codec", rev = "09a0526" }
+protos = { git = "https://github.com/LiGoldragon/protos", rev = "c93b598" }
+
+[dev-dependencies]
+tempfile = "3"
+
+[lints.rust]
+unsafe_code = "forbid"
+unused = { level = "warn", priority = -1 }
+dead_code = "warn"
