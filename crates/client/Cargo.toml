@@ -8,9 +8,16 @@ repository = "https://github.com/LiGoldragon/nexus"
 description = "The component-independent ordinary and meta Nexus CLI."
 publish = false
 
+[features]
+default = ["datom"]
+datom = []
+
 [dependencies]
-datom-codec = { git = "https://github.com/LiGoldragon/datom-codec", rev = "09a0526" }
+datom-codec = { git = "https://github.com/LiGoldragon/datom-codec", rev = "09a0526", features = ["rkyv"] }
 protos = { git = "https://github.com/LiGoldragon/protos", rev = "c93b598" }
+
+rkyv = { version = "0.8", default-features = false, features = ["std", "bytecheck", "little_endian", "pointer_width_32", "unaligned"] }
+signal = { git = "https://github.com/LiGoldragon/signal", rev = "4f5cbb9", default-features = false }
 
 [dev-dependencies]
 tempfile = "3"

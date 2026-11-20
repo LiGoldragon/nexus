@@ -1090,10 +1090,22 @@ rec {
           {
             name = "datom-codec";
             packageId = "datom-codec";
+            features = [ "rkyv" ];
           }
           {
             name = "protos";
             packageId = "protos";
+          }
+          {
+            name = "rkyv";
+            packageId = "rkyv";
+            usesDefaultFeatures = false;
+            features = [ "std" "bytecheck" "little_endian" "pointer_width_32" "unaligned" ];
+          }
+          {
+            name = "signal";
+            packageId = "signal";
+            usesDefaultFeatures = false;
           }
         ];
         devDependencies = [
@@ -1102,7 +1114,10 @@ rec {
             packageId = "tempfile";
           }
         ];
-
+        features = {
+          "default" = [ "datom" ];
+        };
+        resolvedDefaultFeatures = [ "datom" "default" ];
       };
       "nexus-exchange" = rec {
         crateName = "nexus-exchange";

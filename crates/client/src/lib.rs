@@ -2,7 +2,18 @@
 //! to the translator; this library resolves only its name and place.
 #![forbid(unsafe_code)]
 
+#[cfg(feature = "datom")]
+mod calling;
 mod configuration;
+mod exchange;
+#[rustfmt::skip]
+#[path = "generated/library.rs"]
+mod generated;
+
+#[cfg(feature = "datom")]
+pub use calling::Calling;
+pub use exchange::{ExchangeFailure, Exchanging, TextExchange};
+pub use generated::{Served, TextReply, TextRequest};
 
 pub use configuration::{
     CliConfiguration, CliEnvironment, ConfigurationFile, ConfigurationReading, EnvironmentReading,

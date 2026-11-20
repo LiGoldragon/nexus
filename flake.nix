@@ -16,7 +16,11 @@
   # Cargo.toml or Cargo.lock:
   #   nix run github:LiGoldragon/build-base#crate2nix -- generate
   outputs =
-    { self, base, ethos-zero }:
+    {
+      self,
+      base,
+      ethos-zero,
+    }:
     let
       lib = base.inputs.nixpkgs.lib;
       cargoNix = ./Cargo.nix;
@@ -24,7 +28,12 @@
         inherit cargoNix;
         # Each member's tests are written for every feature it declares on.
         memberChecks =
-          { pkgs, workspace, check, ... }:
+          {
+            pkgs,
+            workspace,
+            check,
+            ...
+          }:
           lib.mapAttrs (
             name: member:
             let
@@ -45,23 +54,46 @@
             ''
           ) workspace.workspaceMembers;
         extraChecks =
-          { pkgs, toolchain, workspace, doc, ... }:
+          {
+            pkgs,
+            toolchain,
+            workspace,
+            doc,
+            ...
+          }:
           let
             documentation = lib.listToAttrs (
               map (member: {
                 name = "doc-${member}";
-                value = doc member (lib.attrNames (workspace.internal.crates.${workspace.workspaceMembers.${member}.packageId}.features or { })) [ "-D" "warnings" ];
+                value =
+                  doc member
+                    (lib.attrNames (
+                      workspace.internal.crates.${workspace.workspaceMembers.${member}.packageId}.features or { }
+                    ))
+                    [
+                      "-D"
+                      "warnings"
+                    ];
               }) (lib.attrNames workspace.workspaceMembers)
             );
             generator = ethos-zero.packages.${pkgs.stdenv.hostPlatform.system}.default;
             contract =
-              { name, declaration, committed }:
+              {
+                name,
+                declaration,
+                committed,
+              }:
               pkgs.runCommand "nexus-${name}-generated" {
                 inherit generator declaration committed;
               } (builtins.readFile ./checks/generated-contract.sh);
           in
           documentation
           // {
+            client-generated = contract {
+              name = "client";
+              declaration = ./crates/client/ethos/library.ethos;
+              committed = ./crates/client/src/generated/library.rs;
+            };
             exchange-generated = contract {
               name = "exchange";
               declaration = ./crates/exchange/ethos/exchange.ethos;

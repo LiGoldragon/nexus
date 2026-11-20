@@ -1,0 +1,7 @@
+Library
+[ :datom_codec:Error ]
+[ TextRequest.[ Datom.String Describe ]
+  Served.[ Answered Unreadable.Error NexusDown ]
+  TextReply.[ Datom.String Served.Served ] ]
+[]
+[]
