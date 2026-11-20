@@ -70,9 +70,8 @@ impl ConfigurationReading for ConfigurationFile {
             .saturating_add(1);
         let mut budget = Budget {
             remaining,
-            reader: protos::ReaderBudget {
-                remaining: source.len().saturating_add(1),
-            },
+            reader: protos::ReaderBudget::try_from(remaining as usize)
+                .expect("the composition budget is a nonnegative i64"),
             depth: 0,
             maximum_depth: 2,
         };
