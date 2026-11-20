@@ -1,3 +1,5 @@
+#![cfg(feature = "datom")]
+
 use datom_codec::{Actualizing, Budget, Potential};
 use nexus_client::{
     Calling, CliEnvironment, Ending, Exchanging, Named, Served, TextExchange, TextReply,
@@ -300,4 +302,68 @@ fn usage_and_configuration_failure_send_nothing() {
         refusal.starts_with("Missing.") && refusal.contains("example-nexus.datom"),
         "{refusal}"
     );
+}
+
+#[test]
+fn cli_single_datom_is_opaque_and_typed_refusal_needs_a_served_ending() {
+    for complete in [false, true] {
+        let scratch = tempfile::tempdir().unwrap();
+        let configuration = scratch.path().join("configuration");
+        let runtime = scratch.path().join("runtime");
+        std::fs::create_dir_all(configuration.join("nexus")).unwrap();
+        std::fs::create_dir_all(runtime.join("nexus/main")).unwrap();
+        std::fs::write(configuration.join("nexus/example-nexus.datom"), "{ main }").unwrap();
+        let listener =
+            UnixListener::bind(runtime.join("nexus/main/example-translator.sock")).unwrap();
+        let text = "{ a datom\n «kept exactly» }";
+        let peer = std::thread::spawn(move || {
+            let (mut stream, _) = listener.accept().unwrap();
+            let body = stream.read_frame(FrameCapacity::default()).unwrap();
+            assert_eq!(
+                Signal::<TextRequest>::from(Vec::from(body))
+                    .restore()
+                    .unwrap(),
+                TextRequest::Datom(text.into())
+            );
+            stream
+                .write_frame(
+                    &TextReply::Datom("Refused.Policy".into())
+                        .signalize()
+                        .unwrap(),
+                    FrameCapacity::default(),
+                )
+                .unwrap();
+            if complete {
+                stream
+                    .write_frame(
+                        &TextReply::Served(Served::Answered).signalize().unwrap(),
+                        FrameCapacity::default(),
+                    )
+                    .unwrap();
+            }
+        });
+        let environment = CliEnvironment {
+            configuration_home: Some(configuration.into_os_string()),
+            runtime_directory: Some(runtime.into_os_string()),
+            home: None,
+        };
+        let (mut output, mut diagnostics) = (Vec::new(), Vec::new());
+        assert_eq!(
+            Example::call_with(
+                TextSocket::Ordinary,
+                [OsString::from(text)],
+                &environment,
+                &mut output,
+                &mut diagnostics
+            ),
+            if complete {
+                Ending::Answered
+            } else {
+                Ending::Failed
+            }
+        );
+        assert_eq!(output, b"Refused.Policy\n");
+        assert_eq!(diagnostics.is_empty(), complete);
+        peer.join().unwrap();
+    }
 }
