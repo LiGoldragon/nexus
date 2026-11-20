@@ -70,7 +70,9 @@ impl ConfigurationReading for ConfigurationFile {
             .saturating_add(1);
         let mut budget = Budget {
             remaining,
-            reader: protos::ReaderBudget { remaining },
+            reader: protos::ReaderBudget {
+                remaining: source.len().saturating_add(1),
+            },
             depth: 0,
             maximum_depth: 2,
         };
