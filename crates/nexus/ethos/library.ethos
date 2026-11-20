@@ -2,7 +2,8 @@ Library
 []
 [ Capacity.Integer
   Reached.Integer
-  CapacityRefusal.[ Zero Negative ] ]
+  CapacityRefusal.[ Zero Negative ]
+  Unobserved.[ Unsubmitted Unanswered ] ]
 [ Subscribable.{ []
                  [ State Change ]
                  []

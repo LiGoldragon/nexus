@@ -1093,6 +1093,10 @@ rec {
             features = [ "rkyv" ];
           }
           {
+            name = "nexus";
+            packageId = "nexus";
+          }
+          {
             name = "protos";
             packageId = "protos";
           }
@@ -1115,6 +1119,7 @@ rec {
           }
         ];
         features = {
+          "datom" = [ "nexus/datom" ];
           "default" = [ "datom" ];
         };
         resolvedDefaultFeatures = [ "datom" "default" ];

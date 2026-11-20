@@ -13,7 +13,7 @@ pub struct TextExchange {
 #[derive(Debug)]
 pub enum ExchangeFailure {
     Transport(signal::FrameError),
-    Archive(String),
+    Archive(rkyv::rancor::Error),
     Output(std::io::Error),
 }
 
@@ -33,9 +33,7 @@ impl Exchanging for TextExchange {
         request: TextRequest,
         output: &mut impl Write,
     ) -> Result<Served, ExchangeFailure> {
-        let request = request
-            .signalize()
-            .map_err(|error| ExchangeFailure::Archive(format!("{error:?}")))?;
+        let request = request.signalize().map_err(ExchangeFailure::Archive)?;
         self.stream
             .write_frame(&request, self.capacity)
             .map_err(ExchangeFailure::Transport)?;
@@ -46,7 +44,7 @@ impl Exchanging for TextExchange {
                 .map_err(ExchangeFailure::Transport)?;
             let reply = Signal::<TextReply>::from(Vec::from(body))
                 .restore()
-                .map_err(|error| ExchangeFailure::Archive(format!("{error:?}")))?;
+                .map_err(ExchangeFailure::Archive)?;
             match reply {
                 TextReply::Datom(text) => {
                     output

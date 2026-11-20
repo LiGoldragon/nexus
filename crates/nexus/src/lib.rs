@@ -20,7 +20,7 @@ mod situation;
 
 pub use authority::{Permissive, SocketAuthority};
 pub use configuration::{Configurable, ConfigurationState, ConfigurationTransitionError};
-pub use generated::{Capacity, CapacityRefusal, Publishing, Reached, Subscribable};
+pub use generated::{Capacity, CapacityRefusal, Publishing, Reached, Subscribable, Unobserved};
 pub use publisher::Publisher;
 pub use relocation::{Relocated, Relocating, Relocation};
 pub use situation::{Bearing, Identifying, Situated, Situating, Situation, StoreIdentity};

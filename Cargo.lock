@@ -316,6 +316,7 @@ name = "nexus-client"
 version = "0.1.0"
 dependencies = [
  "datom-codec",
+ "nexus",
  "protos",
  "rkyv",
  "signal",

@@ -1,17 +1,14 @@
-//! Process entry points, shared by the ordinary and meta component executables.
+//! Process adapters and the single Datom diagnostic translation boundary.
 use crate::{
-    CliEnvironment, Ending, EnvironmentReading, Exchanging, Named, Served, SocketResolving,
-    TextExchange, TextRequest, TextSocket, Unsent,
+    Calling, CliEnvironment, Diagnostic, Ending, EnvironmentReading, Exchanging, Named, Served,
+    SocketResolving, TextExchange, TextRequest, TextSocket, Unobserved, Unsent,
 };
 use datom_codec::Datomizable;
 use protos::{Compactable, Protosizable};
 use std::{ffi::OsString, io::Write, os::unix::net::UnixStream};
 
-/// The whole CLI. A component contributes only Named and chooses its socket.
-pub trait Calling: Named {
-    fn call(socket: TextSocket) -> Ending;
-    /// The same invocation with explicit arguments, roots and output sinks;
-    /// arguments exclude the executable name. No process global is changed.
+/// The OS-native invocation capability used for embedding and isolated tests.
+pub trait CallingWith: Named {
     fn call_with(
         socket: TextSocket,
         arguments: impl IntoIterator<Item = OsString>,
@@ -19,6 +16,20 @@ pub trait Calling: Named {
         output: &mut impl Write,
         diagnostics: &mut impl Write,
     ) -> Ending;
+}
+
+/// Print a declared diagnostic or pre-send refusal through its Datom codec.
+trait Reporting {
+    fn report(&self, diagnostics: &mut impl Write) -> std::io::Result<()>;
+}
+impl<T: Datomizable> Reporting for T {
+    fn report(&self, diagnostics: &mut impl Write) -> std::io::Result<()> {
+        writeln!(
+            diagnostics,
+            "{}",
+            self.datomize(vec![]).protosize().compact()
+        )
+    }
 }
 
 impl<N: Named> Calling for N {
@@ -31,7 +42,9 @@ impl<N: Named> Calling for N {
             &mut std::io::stderr().lock(),
         )
     }
+}
 
+impl<N: Named> CallingWith for N {
     fn call_with(
         socket: TextSocket,
         arguments: impl IntoIterator<Item = OsString>,
@@ -45,38 +58,28 @@ impl<N: Named> Calling for N {
             (Some(text), None) => match text.into_string() {
                 Ok(text) => TextRequest::Datom(text),
                 Err(_) => {
-                    let _ = writeln!(
-                        diagnostics,
-                        "{}",
-                        Unsent::Usage.datomize(vec![]).protosize().compact()
-                    );
-                    return Ending::Unsent;
+                    let refusal = Unsent::Usage;
+                    let _ = refusal.report(diagnostics);
+                    return Ending::Unsent(refusal);
                 }
             },
             _ => {
-                let _ = writeln!(
-                    diagnostics,
-                    "{}",
-                    Unsent::Usage.datomize(vec![]).protosize().compact()
-                );
-                return Ending::Unsent;
+                let refusal = Unsent::Usage;
+                let _ = refusal.report(diagnostics);
+                return Ending::Unsent(refusal);
             }
         };
         let socket = match environment.translator_socket::<N>(socket) {
             Ok(socket) => socket,
             Err(refusal) => {
-                let _ = writeln!(
-                    diagnostics,
-                    "{}",
-                    refusal.datomize(vec![]).protosize().compact()
-                );
-                return Ending::Unsent;
+                let _ = refusal.report(diagnostics);
+                return Ending::Unsent(refusal);
             }
         };
         let stream = match UnixStream::connect(socket) {
             Ok(stream) => stream,
-            Err(error) => {
-                let _ = writeln!(diagnostics, "Failed.{}", error);
+            Err(_) => {
+                let _ = Diagnostic::Unobserved(Unobserved::Unsubmitted).report(diagnostics);
                 return Ending::Failed;
             }
         };
@@ -88,15 +91,11 @@ impl<N: Named> Calling for N {
         {
             Ok(Served::Answered) => Ending::Answered,
             Ok(served) => {
-                let _ = writeln!(
-                    diagnostics,
-                    "Served.{}",
-                    served.datomize(vec![]).protosize().compact()
-                );
+                let _ = Diagnostic::Served(served).report(diagnostics);
                 Ending::Failed
             }
-            Err(error) => {
-                let _ = writeln!(diagnostics, "Failed.{error:?}");
+            Err(_) => {
+                let _ = Diagnostic::Unobserved(Unobserved::Unanswered).report(diagnostics);
                 Ending::Failed
             }
         }

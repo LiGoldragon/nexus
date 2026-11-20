@@ -10,9 +10,10 @@ publish = false
 
 [features]
 default = ["datom"]
-datom = []
+datom = ["nexus/datom"]
 
 [dependencies]
+nexus = { path = "../nexus", version = "0.9.0" }
 datom-codec = { git = "https://github.com/LiGoldragon/datom-codec", rev = "09a0526", features = ["rkyv"] }
 protos = { git = "https://github.com/LiGoldragon/protos", rev = "c93b598" }
 

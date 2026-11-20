@@ -2,7 +2,7 @@
 
 use datom_codec::{Actualizing, Budget, Potential};
 use nexus_client::{
-    Calling, CliEnvironment, Ending, Exchanging, Named, Served, TextExchange, TextReply,
+    CallingWith, CliEnvironment, Ending, Exchanging, Named, Served, TextExchange, TextReply,
     TextRequest, TextSocket,
 };
 use signal::{FrameCapacity, FrameReading, FrameWriting, Restorable, Signal, Signalizable};
@@ -15,8 +15,8 @@ use std::{
 
 struct Example;
 impl Named for Example {
-    fn name() -> &'static str {
-        "example"
+    fn name() -> String {
+        "example".into()
     }
 }
 
@@ -190,15 +190,14 @@ fn caller_output_failure_closes_the_subscription_connection() {
 
 #[test]
 fn cli_describe_and_each_served_outcome_have_the_declared_status() {
-    let mut budget = Budget {
-        remaining: 100,
-        reader: protos::ReaderBudget::try_from(100).unwrap(),
-        depth: 0,
-        maximum_depth: 10,
+    let unreadable = datom_codec::Error {
+        layer: datom_codec::ErrorLayer::Composition,
+        path: vec![],
+        kind: datom_codec::ErrorKind::Value {
+            expected: "an input with { positions }".into(),
+            value: "malformed [ «text with spaces» ]".into(),
+        },
     };
-    let unreadable = Potential::<String>::from("{ bad }")
-        .actualize(&mut budget)
-        .unwrap_err();
     for (socket, served, expected) in [
         (TextSocket::Ordinary, Served::Answered, Ending::Answered),
         (TextSocket::Meta, Served::NexusDown, Ending::Failed),
@@ -219,6 +218,7 @@ fn cli_describe_and_each_served_outcome_have_the_declared_status() {
             TextSocket::Meta => "example-meta-translator.sock",
         };
         let listener = UnixListener::bind(runtime.join("nexus/main").join(file)).unwrap();
+        let diagnostic = nexus_client::Diagnostic::Served(served.clone());
         let peer = std::thread::spawn(move || {
             let (mut stream, _) = listener.accept().unwrap();
             let body = stream.read_frame(FrameCapacity::default()).unwrap();
@@ -251,17 +251,23 @@ fn cli_describe_and_each_served_outcome_have_the_declared_status() {
         let (mut output, mut diagnostics) = (Vec::new(), Vec::new());
         assert_eq!(
             Example::call_with(socket, [], &environment, &mut output, &mut diagnostics),
-            expected
+            expected.clone()
         );
         assert_eq!(output, b"InputAndOutputEthos\n");
         if expected == Ending::Answered {
             assert!(diagnostics.is_empty());
         } else {
-            assert!(
-                String::from_utf8(diagnostics)
-                    .unwrap()
-                    .starts_with("Served.")
-            );
+            let mut budget = Budget {
+                remaining: 10_000,
+                reader: protos::ReaderBudget::try_from(10_000).unwrap(),
+                depth: 0,
+                maximum_depth: 64,
+            };
+            let printed = String::from_utf8(diagnostics).unwrap();
+            let restored = Potential::<nexus_client::Diagnostic>::from(printed)
+                .actualize(&mut budget)
+                .unwrap();
+            assert_eq!(restored, diagnostic);
         }
         peer.join().unwrap();
     }
@@ -278,7 +284,7 @@ fn usage_and_configuration_failure_send_nothing() {
             &mut Vec::new(),
             &mut diagnostics
         ),
-        Ending::Unsent
+        Ending::Unsent(nexus_client::Unsent::Usage)
     );
     assert_eq!(diagnostics, b"Usage\n");
     let scratch = tempfile::tempdir().unwrap();
@@ -287,7 +293,7 @@ fn usage_and_configuration_failure_send_nothing() {
         ..CliEnvironment::default()
     };
     diagnostics.clear();
-    assert_eq!(
+    assert!(matches!(
         Example::call_with(
             TextSocket::Meta,
             [OsString::from("Opaque.unparsed")],
@@ -295,8 +301,8 @@ fn usage_and_configuration_failure_send_nothing() {
             &mut Vec::new(),
             &mut diagnostics
         ),
-        Ending::Unsent
-    );
+        Ending::Unsent(nexus_client::Unsent::Missing(_))
+    ));
     let refusal = String::from_utf8(diagnostics).unwrap();
     assert!(
         refusal.starts_with("Missing.") && refusal.contains("example-nexus.datom"),
@@ -364,6 +370,88 @@ fn cli_single_datom_is_opaque_and_typed_refusal_needs_a_served_ending() {
         );
         assert_eq!(output, b"Refused.Policy\n");
         assert_eq!(diagnostics.is_empty(), complete);
+        if !complete {
+            assert_eq!(
+                String::from_utf8(diagnostics).unwrap(),
+                "Unobserved.Unanswered\n"
+            );
+        }
         peer.join().unwrap();
+    }
+}
+
+#[test]
+fn connection_and_output_failures_print_declared_diagnostics() {
+    for connected in [false, true] {
+        let scratch = tempfile::tempdir().unwrap();
+        let configuration = scratch.path().join("configuration");
+        let runtime = scratch.path().join("runtime");
+        std::fs::create_dir_all(configuration.join("nexus")).unwrap();
+        std::fs::create_dir_all(runtime.join("nexus/main")).unwrap();
+        std::fs::write(configuration.join("nexus/example-nexus.datom"), "{ main }").unwrap();
+        let socket = runtime.join("nexus/main/example-translator.sock");
+        let peer = if connected {
+            let listener = UnixListener::bind(socket).unwrap();
+            Some(std::thread::spawn(move || {
+                let (mut stream, _) = listener.accept().unwrap();
+                stream.read_frame(FrameCapacity::default()).unwrap();
+                stream
+                    .write_frame(
+                        &TextReply::Datom("Reply.value".into()).signalize().unwrap(),
+                        FrameCapacity::default(),
+                    )
+                    .unwrap();
+            }))
+        } else {
+            None
+        };
+        struct BrokenOutput;
+        impl Write for BrokenOutput {
+            fn write(&mut self, _: &[u8]) -> std::io::Result<usize> {
+                Err(std::io::Error::other(
+                    "failure with spaces { braces } [ «delimiters» ]",
+                ))
+            }
+            fn flush(&mut self) -> std::io::Result<()> {
+                Ok(())
+            }
+        }
+        let environment = CliEnvironment {
+            configuration_home: Some(configuration.into_os_string()),
+            runtime_directory: Some(runtime.into_os_string()),
+            home: None,
+        };
+        let mut diagnostics = Vec::new();
+        assert_eq!(
+            Example::call_with(
+                TextSocket::Ordinary,
+                [OsString::from("Call.value")],
+                &environment,
+                &mut BrokenOutput,
+                &mut diagnostics
+            ),
+            Ending::Failed
+        );
+        let mut budget = Budget {
+            remaining: 100,
+            reader: protos::ReaderBudget::try_from(100).unwrap(),
+            depth: 0,
+            maximum_depth: 10,
+        };
+        let diagnostic =
+            Potential::<nexus_client::Diagnostic>::from(String::from_utf8(diagnostics).unwrap())
+                .actualize(&mut budget)
+                .unwrap();
+        assert_eq!(
+            diagnostic,
+            nexus_client::Diagnostic::Unobserved(if connected {
+                nexus_client::Unobserved::Unanswered
+            } else {
+                nexus_client::Unobserved::Unsubmitted
+            })
+        );
+        if let Some(peer) = peer {
+            peer.join().unwrap();
+        }
     }
 }

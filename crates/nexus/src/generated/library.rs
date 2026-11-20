@@ -20,6 +20,13 @@ pub enum CapacityRefusal {
     Negative,
 }
 #[rustfmt::skip]
+#[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Debug, PartialEq, Eq, Hash)]
+#[cfg_attr(feature = "datom", derive(datom_codec::Datomizable, datom_codec::Composing))]
+pub enum Unobserved {
+    Unsubmitted,
+    Unanswered,
+}
+#[rustfmt::skip]
 pub trait Subscribable {
     type State;
     type Change;

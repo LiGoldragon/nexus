@@ -1,21 +1,15 @@
-//! Configuration and socket resolution, with explicit environment values so
-//! tests and callers can resolve a place without changing process globals.
-use crate::{Named, TextSocket, Unsent};
+//! OS adapters for the declared CLI configuration. Explicit environment
+//! values let callers resolve a place without changing process globals.
+use crate::{
+    CliConfiguration, Invalid_Data, Named, Path, Reason, TextSocket, Unreadable_Data, Unsent,
+};
 use datom_codec::{Actualizing, Budget, Potential};
 use std::{
     ffi::OsString,
-    path::{Component, Path, PathBuf},
+    path::{Component, Path as FilePath, PathBuf},
 };
 
-#[derive(Clone, Debug, PartialEq, Eq, datom_codec::Composing)]
-pub struct PlaceName(pub String);
-
-#[derive(Clone, Debug, PartialEq, Eq, datom_codec::Composing)]
-pub struct CliConfiguration {
-    pub place_name: PlaceName,
-}
-
-/// The three standard variables read by a client, never by a Nexus.
+/// OS-native environment values; not data carried in a Nexus contract.
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
 pub struct CliEnvironment {
     pub configuration_home: Option<OsString>,
@@ -26,12 +20,11 @@ pub struct CliEnvironment {
 pub trait EnvironmentReading {
     fn of_process() -> Self;
 }
-
 pub trait ConfigurationReading {
     fn read(&self) -> Result<CliConfiguration, Unsent>;
 }
 
-/// A component's shared ordinary/meta CLI configuration file.
+/// An OS-native configuration path, distinct from the declared diagnostic Path.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct ConfigurationFile(pub PathBuf);
 
@@ -52,47 +45,48 @@ impl EnvironmentReading for CliEnvironment {
 
 impl ConfigurationReading for ConfigurationFile {
     fn read(&self) -> Result<CliConfiguration, Unsent> {
-        let path = self.0.to_string_lossy().into_owned();
+        let path = Path(self.0.to_string_lossy().into_owned());
         let source = std::fs::read_to_string(&self.0).map_err(|error| {
             if error.kind() == std::io::ErrorKind::NotFound {
                 Unsent::Missing(path.clone())
             } else {
-                Unsent::Unreadable {
+                Unsent::Unreadable(Unreadable_Data {
                     path: path.clone(),
-                    reason: error.to_string(),
-                }
+                    reason: Reason(error.to_string()),
+                })
             }
         })?;
-        // The flat configuration has a struct and one string. Its text length
-        // bounds the reader work; its type fixes composition depth.
+        // Text length bounds the reader work; the flat declared type fixes depth.
         let remaining = i64::try_from(source.len())
             .unwrap_or(i64::MAX)
             .saturating_add(1);
         let mut budget = Budget {
             remaining,
             reader: protos::ReaderBudget::try_from(remaining as usize)
-                .expect("the composition budget is a nonnegative i64"),
+                .expect("nonnegative i64 budget"),
             depth: 0,
             maximum_depth: 2,
         };
         let configuration = Potential::<CliConfiguration>::from(source)
             .actualize(&mut budget)
-            .map_err(|error| Unsent::Invalid {
-                path: path.clone(),
-                reason: format!("{error:?}"),
+            .map_err(|error| {
+                Unsent::Invalid(Invalid_Data {
+                    path: path.clone(),
+                    reason: Reason(format!("{error:?}")),
+                })
             })?;
         let name = &configuration.place_name.0;
-        let mut components = Path::new(name).components();
+        let mut components = FilePath::new(name).components();
         if name.is_empty()
             || name.contains('/')
             || name.contains('\0')
             || !matches!(components.next(), Some(Component::Normal(_)))
             || components.next().is_some()
         {
-            return Err(Unsent::Invalid {
+            return Err(Unsent::Invalid(Invalid_Data {
                 path,
-                reason: "the place name must be one normal path component".into(),
-            });
+                reason: Reason("the place name must be one normal path component".into()),
+            }));
         }
         Ok(configuration)
     }
@@ -110,23 +104,22 @@ impl SocketResolving for CliEnvironment {
             None => match self.home.as_ref().filter(|value| !value.is_empty()) {
                 Some(home) => PathBuf::from(home).join(".config"),
                 None => {
-                    return Err(Unsent::Invalid {
-                        path: format!("~/.config/nexus/{file_name}"),
-                        reason: "XDG_CONFIG_HOME and HOME are unset".into(),
-                    });
+                    return Err(Unsent::Invalid(Invalid_Data {
+                        path: Path(format!("~/.config/nexus/{file_name}")),
+                        reason: Reason("XDG_CONFIG_HOME and HOME are unset".into()),
+                    }));
                 }
             },
         };
         let path = root.join("nexus").join(file_name);
         if !root.is_absolute() {
-            return Err(Unsent::Invalid {
-                path: path.to_string_lossy().into_owned(),
-                reason: "the configuration root must be absolute".into(),
-            });
+            return Err(Unsent::Invalid(Invalid_Data {
+                path: Path(path.to_string_lossy().into_owned()),
+                reason: Reason("the configuration root must be absolute".into()),
+            }));
         }
         Ok(ConfigurationFile(path))
     }
-
     fn translator_socket<N: Named>(&self, socket: TextSocket) -> Result<PathBuf, Unsent> {
         let file = self.configuration_file::<N>()?;
         let configuration = file.read()?;
@@ -135,9 +128,11 @@ impl SocketResolving for CliEnvironment {
             .as_ref()
             .map(PathBuf::from)
             .filter(|path| path.is_absolute())
-            .ok_or_else(|| Unsent::Invalid {
-                path: file.0.to_string_lossy().into_owned(),
-                reason: "XDG_RUNTIME_DIR must name an absolute directory".into(),
+            .ok_or_else(|| {
+                Unsent::Invalid(Invalid_Data {
+                    path: Path(file.0.to_string_lossy().into_owned()),
+                    reason: Reason("XDG_RUNTIME_DIR must name an absolute directory".into()),
+                })
             })?;
         let socket_name = match socket {
             TextSocket::Ordinary => format!("{}-translator.sock", N::name()),
@@ -149,14 +144,14 @@ impl SocketResolving for CliEnvironment {
             .join(socket_name))
     }
 }
-
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::PlaceName;
     struct Example;
     impl Named for Example {
-        fn name() -> &'static str {
-            "example"
+        fn name() -> String {
+            "example".into()
         }
     }
 
@@ -170,17 +165,17 @@ mod tests {
             environment.configuration_home = configuration_home;
             assert_eq!(
                 environment.configuration_file::<Example>().unwrap().0,
-                Path::new("/home/example/.config/nexus/example-nexus.datom")
+                FilePath::new("/home/example/.config/nexus/example-nexus.datom")
             );
         }
         environment.configuration_home = Some("/configuration".into());
         assert_eq!(
             environment.configuration_file::<Example>().unwrap().0,
-            Path::new("/configuration/nexus/example-nexus.datom")
+            FilePath::new("/configuration/nexus/example-nexus.datom")
         );
         environment.configuration_home = Some("relative".into());
         assert!(
-            matches!(environment.configuration_file::<Example>(), Err(Unsent::Invalid { path, .. }) if path == "relative/nexus/example-nexus.datom")
+            matches!(environment.configuration_file::<Example>(), Err(Unsent::Invalid(crate::Invalid_Data { path, .. })) if path.0 == "relative/nexus/example-nexus.datom")
         );
     }
 
@@ -195,7 +190,7 @@ mod tests {
         };
         let file = environment.configuration_file::<Example>().unwrap();
         let path = file.0.to_string_lossy().into_owned();
-        assert_eq!(file.read(), Err(Unsent::Missing(path.clone())));
+        assert_eq!(file.read(), Err(Unsent::Missing(crate::Path(path.clone()))));
         for text in ["{ next }", "{ «next» }\n"] {
             std::fs::write(&file.0, text).unwrap();
             assert_eq!(file.read().unwrap().place_name, PlaceName("next".into()));
@@ -203,13 +198,13 @@ mod tests {
                 environment
                     .translator_socket::<Example>(TextSocket::Ordinary)
                     .unwrap(),
-                Path::new("/runtime/nexus/next/example-translator.sock")
+                FilePath::new("/runtime/nexus/next/example-translator.sock")
             );
             assert_eq!(
                 environment
                     .translator_socket::<Example>(TextSocket::Meta)
                     .unwrap(),
-                Path::new("/runtime/nexus/next/example-meta-translator.sock")
+                FilePath::new("/runtime/nexus/next/example-meta-translator.sock")
             );
         }
         for text in [
@@ -225,14 +220,14 @@ mod tests {
         ] {
             std::fs::write(&file.0, text).unwrap();
             assert!(
-                matches!(file.read(), Err(Unsent::Invalid { path: named, .. }) if named == path),
+                matches!(file.read(), Err(Unsent::Invalid(crate::Invalid_Data { path: named, .. })) if named.0 == path),
                 "{text:?}"
             );
         }
         std::fs::remove_file(&file.0).unwrap();
         std::fs::create_dir(&file.0).unwrap();
         assert!(
-            matches!(file.read(), Err(Unsent::Unreadable { path: named, .. }) if named == path)
+            matches!(file.read(), Err(Unsent::Unreadable(crate::Unreadable_Data { path: named, .. })) if named.0 == path)
         );
     }
 
@@ -249,7 +244,7 @@ mod tests {
             };
             assert!(
                 matches!(environment.translator_socket::<Example>(TextSocket::Ordinary),
-                Err(Unsent::Invalid { path, .. }) if path.ends_with("example-nexus.datom"))
+                Err(Unsent::Invalid(crate::Invalid_Data { path, .. })) if path.0.ends_with("example-nexus.datom"))
             );
         }
     }
