@@ -26,5 +26,6 @@ pub use relocation::{Relocated, Relocating, Relocation};
 pub use situation::{Bearing, Identifying, Situated, Situating, Situation, StoreIdentity};
 mod sending;
 pub use sending::{
-    EmissionSender, Sending, SignalReceiving, SignalSubmitting, TransmissionError, WireValue,
+    EmissionConnecting, EmissionSender, FrameSubmitting, Sending, SendingWith, SignalReceiving,
+    SignalSubmitting, TransmissionError, WireValue,
 };

@@ -5,7 +5,7 @@ use signal::{
     FRAME_PREFIX_BYTES, Framable, FrameBody, FrameCapacity, FrameError, FramePrefix,
     LengthDeclaring, Restorable, Signal, Signalizable,
 };
-use std::{future::Future, path::PathBuf};
+use std::{future::Future, io, path::PathBuf};
 use tokio::{
     io::{AsyncRead, AsyncReadExt, AsyncWrite, AsyncWriteExt},
     net::UnixStream,
@@ -73,16 +73,28 @@ impl<R: AsyncRead + Unpin + Send> SignalReceiving for R {
         T::restored(FrameBody::from(body))
     }
 }
+/// Writes an already prepared Signal frame without encoding it again.
+pub trait FrameSubmitting {
+    fn submit_frame(
+        &mut self,
+        frame: &[u8],
+    ) -> impl Future<Output = Result<(), TransmissionError>> + Send;
+}
+impl<W: AsyncWrite + Unpin + Send> FrameSubmitting for W {
+    async fn submit_frame(&mut self, frame: &[u8]) -> Result<(), TransmissionError> {
+        self.write_all(frame)
+            .await
+            .map_err(|error| TransmissionError::Frame(FrameError::Io(error)))
+    }
+}
 impl<W: AsyncWrite + Unpin + Send> SignalSubmitting for W {
     async fn submit<T: WireValue>(
         &mut self,
         value: T,
         capacity: FrameCapacity,
     ) -> Result<(), TransmissionError> {
-        let bytes = value.framed_value(capacity)?;
-        self.write_all(&bytes)
-            .await
-            .map_err(|error| TransmissionError::Frame(FrameError::Io(error)))
+        let frame = value.framed_value(capacity)?;
+        self.submit_frame(&frame).await
     }
 }
 
@@ -92,6 +104,18 @@ pub struct EmissionSender {
     pub frame_capacity: FrameCapacity,
 }
 
+/// The endpoint that establishes an emission connection.
+pub trait EmissionConnecting {
+    type Connection: AsyncRead + AsyncWrite + Unpin + Send;
+    fn connect(&self) -> impl Future<Output = io::Result<Self::Connection>> + Send;
+}
+impl EmissionConnecting for PathBuf {
+    type Connection = UnixStream;
+    async fn connect(&self) -> io::Result<Self::Connection> {
+        UnixStream::connect(self).await
+    }
+}
+
 /// One typed emission, one connection, one typed terminal outcome.
 pub trait Sending {
     fn send<Emission: WireValue, Outcome: WireValue>(
@@ -99,21 +123,47 @@ pub trait Sending {
         emission: Emission,
     ) -> impl Future<Output = Result<Outcome, Unobserved>> + Send;
 }
+/// The same sender over an explicitly supplied connection capability.
+pub trait SendingWith {
+    fn send_with<Emission: WireValue, Outcome: WireValue, Connector: EmissionConnecting + Sync>(
+        &self,
+        emission: Emission,
+        connector: &Connector,
+    ) -> impl Future<Output = Result<Outcome, Unobserved>> + Send;
+}
+impl SendingWith for EmissionSender {
+    async fn send_with<
+        Emission: WireValue,
+        Outcome: WireValue,
+        Connector: EmissionConnecting + Sync,
+    >(
+        &self,
+        emission: Emission,
+        connector: &Connector,
+    ) -> Result<Outcome, Unobserved> {
+        // Preparation touches no receiver. Once connected, every failure is uncertain.
+        let frame = emission
+            .framed_value(self.frame_capacity)
+            .map_err(|_| Unobserved::Unsubmitted)?;
+        let mut connection = connector
+            .connect()
+            .await
+            .map_err(|_| Unobserved::Unsubmitted)?;
+        connection
+            .submit_frame(&frame)
+            .await
+            .map_err(|_| Unobserved::Unanswered)?;
+        connection
+            .receive(self.frame_capacity)
+            .await
+            .map_err(|_| Unobserved::Unanswered)
+    }
+}
 impl Sending for EmissionSender {
     async fn send<Emission: WireValue, Outcome: WireValue>(
         &self,
         emission: Emission,
     ) -> Result<Outcome, Unobserved> {
-        let mut connection = UnixStream::connect(&self.socket_path)
-            .await
-            .map_err(|_| Unobserved::Unsubmitted)?;
-        connection
-            .submit(emission, self.frame_capacity)
-            .await
-            .map_err(|_| Unobserved::Unsubmitted)?;
-        connection
-            .receive(self.frame_capacity)
-            .await
-            .map_err(|_| Unobserved::Unanswered)
+        self.send_with(emission, &self.socket_path).await
     }
 }
