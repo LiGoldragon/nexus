@@ -1045,6 +1045,7 @@ rec {
           {
             name = "signal";
             packageId = "signal";
+            usesDefaultFeatures = false;
           }
           {
             name = "thiserror";
@@ -1095,6 +1096,7 @@ rec {
           {
             name = "nexus";
             packageId = "nexus";
+            usesDefaultFeatures = false;
           }
           {
             name = "protos";
@@ -1867,7 +1869,7 @@ rec {
         features = {
           "datom" = [ "dep:datom-codec" "dep:protos" ];
         };
-        resolvedDefaultFeatures = [ "datom" "default" ];
+        resolvedDefaultFeatures = [ "datom" ];
       };
       "signal-hook-registry" = rec {
         crateName = "signal-hook-registry";
