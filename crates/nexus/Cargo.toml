@@ -23,7 +23,7 @@ thiserror = "2"
 tokio = { version = "1.53.1", default-features = false, features = ["sync", "net", "io-util"] }
 
 [build-dependencies]
-ethos-zero = { git = "https://github.com/LiGoldragon/ethos-zero", rev = "b97d952" }
+ethos-zero = { git = "https://github.com/LiGoldragon/ethos-zero", rev = "2999292dc67c8608e54d32c333c550b29153cbff" }
 
 [dev-dependencies]
 tempfile = "3"
